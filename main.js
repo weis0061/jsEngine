@@ -48,6 +48,7 @@ setInterval(() => {
     //console.log(leadingCamera.rotation);
     vmath.slerp(out,leadingCamera.rotation,camera.rotation, framerate);
     camera.rotation=out;
+    /*
     regl.frame(() => {
         //renderer.render(scene, camera);//replace this
         regl({
@@ -62,24 +63,35 @@ setInterval(() => {
                 color:regl.prop('color')
             }
         });
-    });
+    });*/
     currentTime += framerateMs;
 }, framerateMs);
 
+
+//#region render
+var glsl=x=>x;
+
+var vertdecl=glsl`
+    attribute vec2 position;`
+var fragdecl=glsl`
+    uniform vec4 color;`
+var decl=glsl`
+    precision mediump float;
+    varying vec2 uv;`
+
 var drawCall=regl({
-    frag:`    
-precision mediump float;
-uniform vec4 color;
-varying vec2 uv;
-void main() {
+    frag:
+    decl+
+    fragdecl+
+    glsl`void main() {
     float x=uv.x;
   gl_FragColor = color;
   gl_FragColor.x=x;
 }`,
-    vert:`    
-precision mediump float;
-attribute vec2 position;
-varying vec2 uv;
+    vert:
+    decl+
+    vertdecl+
+    glsl`
 void main() {
     uv=vec2(position.x,position.y);
   gl_Position = vec4(position, 0, 1);
@@ -98,6 +110,7 @@ attributes:{
     count:4,
     primitive:"triangle fan"
 });
+
 regl.frame(()=>{
     regl.clear({
         color:[0.3,0.8,0.9,0],
@@ -107,3 +120,4 @@ regl.frame(()=>{
         color:[1,0,0,1]
     })
 });
+//#endregion

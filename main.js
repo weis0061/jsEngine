@@ -79,31 +79,32 @@ var declaration=glsl`
     precision mediump float;
     varying vec2 uv;`
     
+    var append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,varX,toEqual,then,v;
 var buildShader=(shader, instructions)=>
 {
     shader=shader+`
     void main(){
         `
         
-    var append=(s)=>{return ()=>{shader=shader+s}}
-    var glVar=(s)=> append(s)();
-    var v=      (s)=>   append(s);
-    var end=        append(`;`);
-    var equal=      append(`=`);
-    var plus=       append(`+`);
-    var minus=      append(`-`);
-    var times=      append(`*`);
-    var dividedBy=  append(`/`);
-    var x=append(`.x`);
-    var y=append(`.y`);
-    var z=append(`.z`);
-    var w=append(`.w`);
-    var fragColor=append(`gl_FragColor`);
-    var uv=append(`uv`);
-    var varX=append(`x`);
+    append=(s)=>{return ()=>{shader=shader+s}}
+    glVar=(s)=> append(s)();
+    v=      (s)=>   append(s);
+    end=        append(`;`);
+    equal=      append(`=`);
+    plus=       append(`+`);
+    minus=      append(`-`);
+    times=      append(`*`);
+    dividedBy=  append(`/`);
+    x=append(`.x`);
+    y=append(`.y`);
+    z=append(`.z`);
+    w=append(`.w`);
+    fragColor=append(`gl_FragColor`);
+    uv=append(`uv`);
+    varX=append(`x`);
     
-    var toEqual=equal;
-    var then=end;
+    toEqual=equal;
+    then=end;
 
 
     //so this is what building the shader in functional would look like

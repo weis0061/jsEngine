@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start":"webpack-dev-server",
+    "start": "webpack-dev-server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -13,7 +13,6 @@
     "nurbs": "^1.1.0",
     "quat-slerp": "^1.0.1",
     "regl": "^1.3.13",
-    "three": "^0.107.0",
     "webpack": "^4.39.3",
     "webpack-dev-server": "^3.8.0"
   },

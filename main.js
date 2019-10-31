@@ -1,5 +1,5 @@
 import * as vmath from './math.js';
-import { addSphere, updateSpheres } from './spheres.js';
+//import { addSphere, updateSpheres } from './spheres.js';
 var regl=require('regl')();
 var Fps = 35;
 var framerate=1/Fps;
@@ -14,7 +14,7 @@ window.addEventListener('resize',(ev) => {
 
 
 setInterval(() => {
-    updateSpheres(currentTime);
+    //updateSpheres(currentTime);
 }, framerateMs);
 //addSphere(0xffaaaa,scene);
 

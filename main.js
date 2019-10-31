@@ -71,31 +71,79 @@ setInterval(() => {
 //#region render
 var glsl=x=>x;
 
-var vertdecl=glsl`
+var vertexDeclaration=glsl`
     attribute vec2 position;`
-var fragdecl=glsl`
+var fragDeclaration=glsl`
     uniform vec4 color;`
-var decl=glsl`
+var declaration=glsl`
     precision mediump float;
     varying vec2 uv;`
+    
+var buildShader=(shader, instructions)=>
+{
+    shader=shader+`
+    void main(){
+        `
+        
+    var append=(s)=>{return ()=>{shader=shader+s}}
+    var glVar=(s)=> append(s)();
+    var v=      (s)=>   append(s);
+    var end=        append(`;`);
+    var equal=      append(`=`);
+    var plus=       append(`+`);
+    var minus=      append(`-`);
+    var times=      append(`*`);
+    var dividedBy=  append(`/`);
+    var x=append(`.x`);
+    var y=append(`.y`);
+    var z=append(`.z`);
+    var w=append(`.w`);
+    var fragColor=append(`gl_FragColor`);
+    var uv=append(`uv`);
+    var varX=append(`x`);
+    
+    var toEqual=equal;
+    var then=end;
+
+
+    //so this is what building the shader in functional would look like
+    glVar(`float x`);toEqual();uv();x(); plus();uv();y();end();
+    fragColor(); toEqual(); glVar(`color`);end();
+
+    instructions(append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,varX,toEqual,then,v).forEach(f=>console.log(f()));
+
+    var funclist=[fragColor,x,toEqual,varX,then];
+    shader=shader+`
+    }`;
+    return shader;
+}
+
+//hey not bad. I think this could be an acceptable way to write shaders
+var fragShader=
+buildShader(
+    declaration+
+    fragDeclaration,
+    (append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,variableX,toEqual,then,v)=>
+    [
+        fragColor,x,toEqual,variableX,then, 
+        fragColor,y,toEqual,variableX,minus,v(0.2),end
+    ]);
+
+console.log(fragShader);
+
+var vertShader=
+    declaration+
+    vertexDeclaration+
+    glsl`
+    void main() {
+    uv=vec2(position.x,position.y);
+    gl_Position = vec4(position, 0, 1);
+    }`;
+
 
 var drawCall=regl({
-    frag:
-    decl+
-    fragdecl+
-    glsl`void main() {
-    float x=uv.x;
-  gl_FragColor = color;
-  gl_FragColor.x=x;
-}`,
-    vert:
-    decl+
-    vertdecl+
-    glsl`
-void main() {
-    uv=vec2(position.x,position.y);
-  gl_Position = vec4(position, 0, 1);
-}`,
+    frag:fragShader,
+    vert:vertShader,
 attributes:{
     position: regl.buffer([
         1,1,

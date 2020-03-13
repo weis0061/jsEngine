@@ -1,12 +1,17 @@
 import * as vmath from './math.js';
+import * as math from 'mathjs';
+const {Matrix} = require('ml-matrix');
 //import { addSphere, updateSpheres } from './spheres.js';
 var regl=require('regl')();
 var Fps = 35;
 var framerate=1/Fps;
 var framerateMs=framerate*1000;
 var currentTime = 0;
-var camera ={fov:90, aspectRatio: window.innerWidth / window.innerHeight, near: 0.01, far: 2000,position:[0,0,5],rotation:[0,0,0,1]};
-var leadingCamera={fov:90,position:[0,0,5],rotation:[0,0,0,1]}
+var camera ={fov:90, aspectRatio: window.innerWidth / window.innerHeight,
+     near: 0.01, far: 2000,
+     position:[0.0,0.0,5.0],
+     rotation:[0,0,0,1]};
+var leadingCamera={fov:90,position:[0,0,0],rotation:[0,0,0,1]}
 camera.position[2]=5;
 window.addEventListener('resize',(ev) => {
     camera.aspectRatio = window.innerWidth / window.innerHeight;
@@ -20,13 +25,14 @@ setInterval(() => {
 
 window.addEventListener('keydown',(e)=>{
     switch(e.key){
-        case "ArrowUp":camera.position.y+=framerate;break;
-        case "ArrowDown":camera.position.y-=framerate;break;
-        case "-":camera.position.z+=framerate;break;
-        case "+":camera.position.z-=framerate;break;
-        case "ArrowRight":camera.position.x+=framerate;break;
-        case "ArrowLeft":camera.position.x-=framerate;break;
+        case "ArrowUp":leadingCamera.position[1]+=framerate*30;break;
+        case "ArrowDown":leadingCamera.position[1]-=framerate*30;break;
+        case "-":leadingCamera.position[2]+=framerate*30;break;
+        case "+":leadingCamera.position[2]-=framerate*30;break;
+        case "ArrowRight":leadingCamera.position[0]+=framerate*30;break;
+        case "ArrowLeft":leadingCamera.position[0]-=framerate*30;break;
     }
+    console.log(leadingCamera.position);
 });
 window.addEventListener('wheel',(e)=>{
     leadingCamera.position[2]+=e.deltaY/60*60;
@@ -44,8 +50,6 @@ setInterval(() => {
     camera.position.y = pos[1];
     camera.position.z = pos[2];
     var out=[0,0,0,1];
-    //console.log(camera.quaternion.toArray());
-    //console.log(leadingCamera.rotation);
     vmath.slerp(out,leadingCamera.rotation,camera.rotation, framerate);
     camera.rotation=out;
     /*
@@ -72,63 +76,56 @@ setInterval(() => {
 var glsl=x=>x;
 
 var vertexDeclaration=glsl`
-    attribute vec2 position;`
+    attribute vec2 position;
+    attribute float VertexID;`;
 var fragDeclaration=glsl`
-    uniform vec4 color;`
+    uniform vec4 color;`;
 var declaration=glsl`
     precision mediump float;
-    varying vec2 uv;`
-    
-    var append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,varX,toEqual,then,v;
-var buildShader=(shader, instructions)=>
+    varying vec2 uv;
+    uniform mat4 matrix_mv;`;
+var uv2col=""+glsl`vec4 uv2col(){
+    return vec4(sqrt(uv.x),sqrt(uv.y),0,1);
+}`;
+var matrix_model2world=glsl``;
+var smoothUnion=glsl`float opSmoothUnion( float d1, float d2, float k ) {
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h); }`;
+var sphereIntersect=glsl`float iSphere(vec3 spherePos, float sphereRadius, vec3 rayOrigin, vec3 rayDirection )
 {
-    shader=shader+`
-    void main(){
-        `
-        
-    append=(s)=>{return ()=>{shader=shader+s}}
-    glVar=(s)=> append(s)();
-    v=      (s)=>   append(s);
-    end=        append(`;`);
-    equal=      append(`=`);
-    plus=       append(`+`);
-    minus=      append(`-`);
-    times=      append(`*`);
-    dividedBy=  append(`/`);
-    x=append(`.x`);
-    y=append(`.y`);
-    z=append(`.z`);
-    w=append(`.w`);
-    fragColor=append(`gl_FragColor`);
-    uv=append(`uv`);
-    varX=append(`x`);
-    
-    toEqual=equal;
-    then=end;
+    vec3 oc = rayOrigin - spherePos;
+    float b = dot(rayDirection, oc);
+    float c = dot(oc, oc) - sphereRadius*sphereRadius;
+    float t = b*b - c;
+    if( t > 0.0) 
+        t = -b - sqrt(t);
+    return t;
+}`;
+var fragShader=""+smoothUnion+sphereIntersect+glsl`void main(){    
+    vec3 rayOrigin=(vec3(gl_FragCoord.x/500.0-0.5,gl_FragCoord.y/500.0-0.5,1)).xyz+matrix_mv[3].xyz;
+    vec3 rayDirection=(vec4(0,0,1,1)*matrix_mv).xyz;
+    float s1=iSphere( vec3(0,0,1.0), 0.5, rayOrigin, rayDirection);
+    float s2=iSphere( vec3(0,1.0,0), 0.5, rayOrigin, rayDirection);
+    float s3=iSphere( vec3(1.0,0,0), 0.5, rayOrigin, rayDirection);
+    float s4=iSphere( vec3(0,0,-1.0), 0.5, rayOrigin, rayDirection);
+    float s5=iSphere( vec3(0,-1.0,0), 0.5, rayOrigin, rayDirection);
+    float s6=iSphere( vec3(-1.0,0,0), 0.5, rayOrigin, rayDirection);
+    float c=opSmoothUnion(s1,s2,0.5);
+    c=max(s1,s2);
+    c=max(c,s3);
+    c=max(c,s4);
+    c=max(c,s5);
+    c=max(c,s6)/5.0;
+    //c=matrix_mv[3].x;
+    gl_FragColor=vec4(c,c,c,1);
+}`;
 
 
-    //so this is what building the shader in functional would look like
-    glVar(`float x`);toEqual();uv();x(); plus();uv();y();end();
-    fragColor(); toEqual(); glVar(`color`);end();
-
-    instructions(append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,varX,toEqual,then,v).forEach(f=>console.log(f()));
-
-    var funclist=[fragColor,x,toEqual,varX,then];
-    shader=shader+`
-    }`;
-    return shader;
-}
-
-//hey not bad. I think this could be an acceptable way to write shaders
-var fragShader=
-buildShader(
+fragShader=
     declaration+
-    fragDeclaration,
-    (append,glVar,end,equal,plus,minus,times,dividedBy,x,y,z,w,fragColor,uv,variableX,toEqual,then,v)=>
-    [
-        fragColor,x,toEqual,variableX,then, 
-        fragColor,y,toEqual,variableX,minus,v(0.2),end
-    ]);
+    fragDeclaration+
+    uv2col+
+    fragShader;
 
 console.log(fragShader);
 
@@ -137,36 +134,58 @@ var vertShader=
     vertexDeclaration+
     glsl`
     void main() {
-    uv=vec2(position.x,position.y);
-    gl_Position = vec4(position, 0, 1);
+    //gl_Position = vec4(VertexID,VertexID, 0, 1);
+    gl_Position=vec4(position.x,position.y, 0, 1);
+    uv.x=VertexID/4.0;
+    uv.y=VertexID/4.0;
     }`;
-
 
 var drawCall=regl({
     frag:fragShader,
     vert:vertShader,
-attributes:{
-    position: regl.buffer([
-        1,1,
-        -1,1,
-        -1,-1,
-        1,-1])
+    attributes:{
+        VertexID:regl.buffer([0,1,2,3]),
+        position: regl.buffer([
+            1,1,
+            -1,1,
+            -1,-1,
+            1,-1])
     },
-    
+        
     uniforms:{
-        color:regl.prop('color')
+        color:regl.prop('color'),
+        matrix_mv:regl.prop('matrix_mv')
     },
     count:4,
-    primitive:"triangle fan"
+    primitive:"triangle fan",
 });
-
+var getMVP=()=>{
+    var xaxis=[math.cos(camera.rotation[1]), 0, -math.sin(camera.rotation[1])];
+    var yaxis=[math.sin(camera.rotation[1])*math.sin(camera.rotation[0]),math.cos(camera.rotation[0]), math.cos(camera.rotation[1])*math.sin(camera.rotation[0])];
+    var zaxis=[math.sin(camera.rotation[1])*math.cos(camera.rotation[0]), -math.sin(camera.rotation[0]), math.cos(camera.rotation[0])*math.cos(camera.rotation[1])];
+    return [
+        [xaxis[0],yaxis[0],zaxis[0],0],
+        [xaxis[1],yaxis[1],zaxis[1],0],
+        [xaxis[2],yaxis[2],zaxis[2],0],
+        [-math.dot(xaxis,camera.position), -math.dot(yaxis,camera.position), -math.dot(zaxis,camera.position), 1]
+    ];
+}
+var getFlatMVP=()=>{
+    var mvp=getMVP();
+    var flatMVP=[];
+    mvp.forEach(row=>{
+        flatMVP=flatMVP.concat(row);
+    });
+    return flatMVP;
+}
 regl.frame(()=>{
     regl.clear({
         color:[0.3,0.8,0.9,0],
         depth:1
     });
     drawCall({
-        color:[1,0,0,1]
-    })
+        color:[1,0,0,1],
+        matrix_mv:getFlatMVP()
+    });
 });
 //#endregion

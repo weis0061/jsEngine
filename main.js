@@ -52,97 +52,17 @@ setInterval(() => {
     var out=[0,0,0,1];
     vmath.slerp(out,leadingCamera.rotation,camera.rotation, framerate);
     camera.rotation=out;
-    /*
-    regl.frame(() => {
-        //renderer.render(scene, camera);//replace this
-        regl({
-        attributes:{
-            position: regl.buffer([
-                1,1,
-                -1,1,
-                -1,-1,
-                1,-1])
-            },
-            uniforms:{
-                color:regl.prop('color')
-            }
-        });
-    });*/
     currentTime += framerateMs;
 }, framerateMs);
 
 
 //#region render
 var glsl=x=>x;
-
-var vertexDeclaration=glsl`
-    attribute vec2 position;
-    attribute float VertexID;`;
-var fragDeclaration=glsl`
-    uniform vec4 color;`;
-var declaration=glsl`
-    precision mediump float;
-    varying vec2 uv;
-    uniform mat4 matrix_mv;`;
-var uv2col=""+glsl`vec4 uv2col(){
-    return vec4(sqrt(uv.x),sqrt(uv.y),0,1);
-}`;
-var matrix_model2world=glsl``;
-var smoothUnion=glsl`float opSmoothUnion( float d1, float d2, float k ) {
-    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
-    return mix( d2, d1, h ) - k*h*(1.0-h); }`;
-var sphereIntersect=glsl`float iSphere(vec3 spherePos, float sphereRadius, vec3 rayOrigin, vec3 rayDirection )
-{
-    vec3 oc = rayOrigin - spherePos;
-    float b = dot(rayDirection, oc);
-    float c = dot(oc, oc) - sphereRadius*sphereRadius;
-    float t = b*b - c;
-    if( t > 0.0) 
-        t = -b - sqrt(t);
-    return t;
-}`;
-var fragShader=""+smoothUnion+sphereIntersect+glsl`void main(){    
-    vec3 rayOrigin=(vec3(gl_FragCoord.x/500.0-0.5,gl_FragCoord.y/500.0-0.5,1)).xyz+matrix_mv[3].xyz;
-    vec3 rayDirection=(vec4(0,0,1,1)*matrix_mv).xyz;
-    float s1=iSphere( vec3(0,0,1.0), 0.5, rayOrigin, rayDirection);
-    float s2=iSphere( vec3(0,1.0,0), 0.5, rayOrigin, rayDirection);
-    float s3=iSphere( vec3(1.0,0,0), 0.5, rayOrigin, rayDirection);
-    float s4=iSphere( vec3(0,0,-1.0), 0.5, rayOrigin, rayDirection);
-    float s5=iSphere( vec3(0,-1.0,0), 0.5, rayOrigin, rayDirection);
-    float s6=iSphere( vec3(-1.0,0,0), 0.5, rayOrigin, rayDirection);
-    float c=opSmoothUnion(s1,s2,0.5);
-    c=max(s1,s2);
-    c=max(c,s3);
-    c=max(c,s4);
-    c=max(c,s5);
-    c=max(c,s6)/5.0;
-    //c=matrix_mv[3].x;
-    gl_FragColor=vec4(c,c,c,1);
-}`;
-
-
-fragShader=
-    declaration+
-    fragDeclaration+
-    uv2col+
-    fragShader;
-
-console.log(fragShader);
-
-var vertShader=
-    declaration+
-    vertexDeclaration+
-    glsl`
-    void main() {
-    //gl_Position = vec4(VertexID,VertexID, 0, 1);
-    gl_Position=vec4(position.x,position.y, 0, 1);
-    uv.x=VertexID/4.0;
-    uv.y=VertexID/4.0;
-    }`;
-
+var graphics=require('./graphics');
+import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
 var drawCall=regl({
-    frag:fragShader,
-    vert:vertShader,
+    frag:graphics.raycastSpheres,
+    vert:declaration+vertexDeclaration+transformPolysToCamera+ glsl`void main(){gl_Position=transformPolysToCamera();}`,
     attributes:{
         VertexID:regl.buffer([0,1,2,3]),
         position: regl.buffer([
@@ -159,7 +79,7 @@ var drawCall=regl({
     count:4,
     primitive:"triangle fan",
 });
-var getMVP=()=>{
+var getViewProjectionMatrix=()=>{
     var xaxis=[math.cos(camera.rotation[1]), 0, -math.sin(camera.rotation[1])];
     var yaxis=[math.sin(camera.rotation[1])*math.sin(camera.rotation[0]),math.cos(camera.rotation[0]), math.cos(camera.rotation[1])*math.sin(camera.rotation[0])];
     var zaxis=[math.sin(camera.rotation[1])*math.cos(camera.rotation[0]), -math.sin(camera.rotation[0]), math.cos(camera.rotation[0])*math.cos(camera.rotation[1])];
@@ -170,13 +90,13 @@ var getMVP=()=>{
         [-math.dot(xaxis,camera.position), -math.dot(yaxis,camera.position), -math.dot(zaxis,camera.position), 1]
     ];
 }
-var getFlatMVP=()=>{
-    var mvp=getMVP();
-    var flatMVP=[];
+var getFlatViewProjectionMatrix=()=>{
+    var mvp=getViewProjectionMatrix();
+    var flatVP=[];
     mvp.forEach(row=>{
-        flatMVP=flatMVP.concat(row);
+        flatVP=flatVP.concat(row);
     });
-    return flatMVP;
+    return flatVP;
 }
 regl.frame(()=>{
     regl.clear({
@@ -185,7 +105,7 @@ regl.frame(()=>{
     });
     drawCall({
         color:[1,0,0,1],
-        matrix_mv:getFlatMVP()
+        matrix_mv:getFlatViewProjectionMatrix()
     });
 });
 //#endregion

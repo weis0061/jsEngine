@@ -57,8 +57,8 @@ var sphereIntersect=glsl`float iSphere(vec3 spherePos, float sphereRadius, vec3 
 }`;
 
 var raycastSpheres=""+smoothUnion+sphereIntersect+glsl`void main(){    
-    vec3 rayOrigin=vec3(position3d.x,position3d.y,0);
-    vec3 rayDirection=(vec4(uv.x,uv.y,0,0)*transpose(matrix_mv)).xyz;
+    vec3 rayOrigin=vec3(0,0,0);
+    vec3 rayDirection=(vec4(position3d.x,position3d.y,position3d.z,0)*matrix_mv).xyz;
     float s1=iSphere( vec3(0,0,1.0), 0.5, rayOrigin, rayDirection);
     float s2=iSphere( vec3(0,1.0,0), 0.5, rayOrigin, rayDirection);
     float s3=iSphere( vec3(1.0,0,0), 0.5, rayOrigin, rayDirection);
@@ -88,6 +88,7 @@ var setUVsOnQuad=
     glsl`
     void main() {
     gl_Position=vec4(position.x,position.y, 0, 1);
+    VertexID=VertexID%4;
     if(VertexID==0.0){
         uv.x=0.0;
         uv.y=0.0;

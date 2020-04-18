@@ -62,7 +62,7 @@ var graphics=require('./graphics');
 import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
 var drawCall=regl({
     frag:graphics.raycastSpheres,
-    vert:declaration+vertexDeclaration+transformPolysToCamera+ glsl`void main(){gl_Position=transformPolysToCamera();}`,
+    vert:declaration+vertexDeclaration+transformPolysToCamera+ glsl`void main(){gl_Position=transformPolysToCamera(); position3d=transformPolysToCamera().xyz;}`,
     attributes:{
         VertexID:regl.buffer([0,1,2,3]),
         position: regl.buffer([

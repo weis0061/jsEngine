@@ -27,7 +27,6 @@
   <div class = "row text-center"> 
      <div class = "col-md-12"> 
       <button id = "hangUpBtn" class = "btn-danger btn">Hang Up</button> 
-      <button id = "handsBtn" class = "btn-danger btn">Detect Hands</button> 
      </div>	
   </div> 
 
@@ -35,7 +34,6 @@
 
 <script>
 //our username 
-    
 var name; 
 var connectedUser;
   
@@ -49,6 +47,12 @@ conn.onopen = function () {
 //when we got a message from a signaling server 
 conn.onmessage = function (msg) { 
    console.log("Got message", msg.data);
+   if(msg.data==="Hello world"){
+      send({ 
+         type: "login", 
+         name: "hub" 
+      });
+   }
 	
    var data = JSON.parse(msg.data); 
 	
@@ -101,7 +105,6 @@ var callPage = document.querySelector('#callPage');
 var callToUsernameInput = document.querySelector('#callToUsernameInput');
 
 var hangUpBtn = document.querySelector('#hangUpBtn');
-var handsBtn = document.querySelector('#handsBtn');
   
 var localVideo = document.querySelector('#localVideo'); 
 var remoteVideo = document.querySelector('#remoteVideo'); 
@@ -116,36 +119,25 @@ async function getHands() {
   remoteVideo.onloadedmetadata=()=>{
      function loop(){
         getHands().then(h=>{
-            if(h[0])
+            if(h[0]){
+               if(remoteVideo.setHands)
+               {
+                  remoteVideo.setHands(h[0].annotations.indexFinger);
+               }
                console.log(h[0].annotations.indexFinger);
+            }
             setTimeout(() => {
                loop();
             }, 10);
          });
      }
      loop();
-   handsBtn.addEventListener('click',function(event){
-   });
   };
 
 var yourConn; 
 var stream;
   
 callPage.style.display = "none";
-usernameInput.value="hub";
-
-// Login when the user clicks the button 
-loginBtn.addEventListener("click", function (event) { 
-   name = usernameInput.value;
-	
-   if (name.length > 0) { 
-      send({ 
-         type: "login", 
-         name: name 
-      }); 
-   }
-	
-});
   
 function handleLogin(success) { 
    if (success === false) { 
@@ -174,6 +166,7 @@ function handleLogin(success) {
 			
          // Setup ice handling 
          yourConn.onicecandidate = function (event) { 
+            console.log('onicecandidate');
             if (event.candidate) { 
                send({ 
                   type: "candidate", 
@@ -199,7 +192,7 @@ function handleOffer(offer, name) {
       }); 
 		
    }, function (error) { 
-      alert("Error when creating an answer"); 
+      alert("Error when creating an answer: "+error); 
    }); 
 };
   
@@ -232,5 +225,3 @@ function handleLeave() {
    yourConn.onaddstream = null; 
 };
 </script>
-
-<iframe src="http://localhost/bundle" frameborder="0"></iframe>

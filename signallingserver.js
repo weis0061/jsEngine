@@ -52,19 +52,19 @@ function startWebsocketServer(){
          switch (data.type) { 
             //when a user tries to login
             case "login": 
-               console.log("User logged", data.name); 
-               
                //if anyone is logged in with this username then refuse 
                if(users[data.name]) { 
                   sendTo(connection, { 
                      type: "login", 
                      success: false 
                   }); 
+                  console.log('login failed');
                } else { 
                   //save user connection on the server 
                   users[data.name] = connection; 
                   connection.name = data.name; 
                   
+                  console.log('successful login from '+data.name);
                   sendTo(connection, { 
                      type: "login", 
                      success: true 
@@ -74,22 +74,29 @@ function startWebsocketServer(){
                break;
                
             case "offer": 
-               //for ex. UserA wants to call UserB 
-               console.log("Sending offer to: ", data.name);
-               
-               //if UserB exists then send him offer details 
-               var conn = users[data.name]; 
-               
-               if(conn != null) { 
-                  //setting that UserA connected with UserB 
-                  connection.otherName = data.name; 
+               var pid=setInterval(() => {
+               }, 500);
+                  //for ex. UserA wants to call UserB 
+                  console.log("Sending offer to: ", data.name);
                   
-                  sendTo(conn, { 
-                     type: "offer", 
-                     offer: data.offer, 
-                     name: connection.name 
-                  }); 
-               }
+                  //if UserB exists then send him offer details 
+                  var conn = users[data.name]; 
+                  
+                  if(conn != null) { 
+                     //setting that UserA connected with UserB 
+                     connection.otherName = data.name; 
+                     
+                     sendTo(conn, { 
+                        type: "offer", 
+                        offer: data.offer, 
+                        name: connection.name 
+                     }); 
+                     console.log(pid);
+                     clearInterval(pid);
+                  }
+                  else{
+                     console.log('user not found');
+                  }
                
                break;
                

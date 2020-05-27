@@ -17,6 +17,31 @@ window.addEventListener('resize',(ev) => {
     camera.aspectRatio = window.innerWidth / window.innerHeight;
 })
 
+window.setHands=(h)=>{
+    console.log("hand position: "+h);
+}
+var handReader=document.createElement("iframe");
+handReader.src="handtracker_webrtc.html";
+document.body.appendChild(handReader);
+handReader.onload=(e)=>{
+    console.log("iframe onload");
+    // using reference to iframe (ifrm) obtained above
+    var win = handReader.contentWindow; // reference to iframe's window
+    // reference to document in iframe
+    var doc = handReader.contentDocument? handReader.contentDocument: handReader.contentWindow.document;
+    console.log(doc.getElementById('remoteVideo'));
+    setInterval(() => {
+            doc.getElementById('remoteVideo').setHands=(indexFinger)=>{
+                console.log(indexFinger[0][0]);//pitch? depth?
+                console.log(indexFinger[0][1]);//x position
+                console.log(indexFinger[0][2]);//?
+            leadingCamera.rotation[0]=indexFinger[0][0]/100;
+            //leadingCamera.rotation[1]=indexFinger[0][1];
+            //leadingCamera.rotation[2]=indexFinger[0][2];
+        }
+    }, 50);
+}
+console.log(handReader);
 
 setInterval(() => {
     //updateSpheres(currentTime);
@@ -98,6 +123,7 @@ var getFlatViewProjectionMatrix=()=>{
     });
     return flatVP;
 }
+
 regl.frame(()=>{
     regl.clear({
         color:[0.3,0.8,0.9,0],

@@ -6,39 +6,7 @@
 
 <video autoplay controls id='vid'></video>
 <span id="outp"></span>
-
-<div id = "loginPage" class = "container text-center"> 
-	
-  <div class = "row"> 
-     <div class = "col-md-4 col-md-offset-4">
-  
-        <h2>WebRTC Video Demo. Please sign in</h2> 
-        <label for = "usernameInput" class = "sr-only">Login</label> 
-        <input type = "email" id = "usernameInput" c
-           lass = "form-control formgroup" placeholder = "Login" 
-           required = "" autofocus = ""> 
-        <button id = "loginBtn" class = "btn btn-lg btn-primary btnblock">
-           Sign in</button>
-    
-     </div> 
-  </div> 
-
-</div>
-
-<div id = "callPage" class = "call-page"> 
-  <video id = "localVideo" autoplay></video> 
-  <video id = "remoteVideo" autoplay></video>
-
-  <div class = "row text-center"> 
-     <div class = "col-md-12"> 
-        <input id = "callToUsernameInput" type = "text"
-           placeholder = "username to call" /> 
-        <button id = "callBtn" class = "btn-success btn">Call</button> 
-        <button id = "hangUpBtn" class = "btn-danger btn">Hang Up</button> 
-     </div>	
-  </div> 
-
-</div>
+<video id = "localVideo" autoplay></video> 
 
 <script>
 var name; 
@@ -54,7 +22,12 @@ conn.onopen = function () {
 //when we got a message from a signaling server 
 conn.onmessage = function (msg) { 
    console.log("Got message", msg.data);
-	
+	if(msg.data==="Hello world"){
+      send({ 
+         type: "login", 
+         name: "camera" 
+      }); 
+   }
    var data = JSON.parse(msg.data); 
 	
    switch(data.type) { 
@@ -94,116 +67,76 @@ function send(message) {
    conn.send(JSON.stringify(message)); 
 };
   
-//****** 
-//UI selectors block 
-//******
- 
-var loginPage = document.querySelector('#loginPage'); 
-var usernameInput = document.querySelector('#usernameInput'); 
-var loginBtn = document.querySelector('#loginBtn'); 
-
-var callPage = document.querySelector('#callPage'); 
-var callToUsernameInput = document.querySelector('#callToUsernameInput');
-var callBtn = document.querySelector('#callBtn'); 
-
-var hangUpBtn = document.querySelector('#hangUpBtn');
-  
 var localVideo = document.querySelector('#localVideo'); 
-var remoteVideo = document.querySelector('#remoteVideo'); 
 
-var yourConn; 
+var peerConnection; 
 var stream;
-usernameInput.value='camera';
-callToUsernameInput.value='hub';
-  
-callPage.style.display = "none";
-
-// Login when the user clicks the button 
-loginBtn.addEventListener("click", function (event) { 
-   name = usernameInput.value;
-	
-   if (name.length > 0) { 
-      send({ 
-         type: "login", 
-         name: name 
-      }); 
-   }
-	
-});
   
 function handleLogin(success) { 
    if (success === false) { 
-      alert("Ooops...try a different username"); 
-   } else { 
-      loginPage.style.display = "none"; 
-      callPage.style.display = "block";
-		
-      //********************** 
-      //Starting a peer connection 
-      //********************** 
-		
+      console.log('login failed');
+   }
+   else {
       //getting local video stream 
-  navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
+      navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
          stream = myStream; 
-			
-         //using Google public stun server 
-         var configuration = { 
-            "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]
-      }; 
-			
-         yourConn = new RTCPeerConnection(configuration); 
-			console.log(yourConn);
-         // setup stream listening 
-         yourConn.addStream(stream); 
-			
-         // Setup ice handling 
-         yourConn.onicecandidate = function (event) { 
-            if (event.candidate) { 
-               send({ 
-                  type: "candidate", 
-                  candidate: event.candidate 
-               }); 
-            } 
-         };  
-			
+         
+         connectCameraToHub();
+         //retry connection if it closes
+         setInterval(() => {
+            console.log(peerConnection);
+            if(!peerConnection){
+               console.log('retry');
+               connectCameraToHub();
+            }
+         }, 2500);
       }, function (error) { 
          console.log(error); 
       }); 
-		
    } 
 };
-  
-//initiating a call 
-callBtn.addEventListener("click", function () { 
-   var callToUsername = callToUsernameInput.value;
-	
-   if (callToUsername.length > 0) { 
-	
-      connectedUser = callToUsername;
-		
-      // create an offer 
-      yourConn.createOffer(function (offer) { 
+var connectCameraToHub=()=>{
+   //using Google public stun server 
+   var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
+      
+   peerConnection = new RTCPeerConnection(configuration); 
+   peerConnection.addStream(stream);
+            
+   peerConnection.onicecandidate = function (event) { 
+      if (event.candidate) { 
          send({ 
-            type: "offer", 
-            offer: offer 
+            type: "candidate", 
+            candidate: event.candidate 
          }); 
-			
-         yourConn.setLocalDescription(offer); 
-      }, function (error) { 
-         alert("Error when creating an offer"); 
-      });
-		
-   } 
-});
+      } 
+   }; 
+
+   connectedUser = "hub";
+   // create an offer 
+   peerConnection.createOffer(function (offer) { 
+      send({ 
+         type: "offer", 
+         offer: offer 
+      }); 
+      
+      peerConnection.setLocalDescription(offer); 
+   }, function (error) { 
+      console.log(error); 
+   });
+   peerConnection.oniceconnectionstatechange=(e)=>{
+      console.log(e);
+   }
+}
+
   
 //when somebody sends us an offer 
 function handleOffer(offer, name) { 
    connectedUser = name; 
-   yourConn.setRemoteDescription(new RTCSessionDescription(offer));
+   peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 	
    //create an answer to an offer 
-   yourConn.createAnswer(function (answer) { 
-      yourConn.setLocalDescription(answer); 
+   peerConnection.createAnswer(function (answer) { 
+      peerConnection.setLocalDescription(answer); 
 		
       send({ 
          type: "answer", 
@@ -211,21 +144,27 @@ function handleOffer(offer, name) {
       }); 
 		
    }, function (error) { 
-      alert("Error when creating an answer"); 
+      console.log(error); 
    }); 
 };
   
 //when we got an answer from a remote user
 function handleAnswer(answer) { 
-   yourConn.setRemoteDescription(new RTCSessionDescription(answer)); 
+   peerConnection.setRemoteDescription(new RTCSessionDescription(answer)); 
 };
   
 //when we got an ice candidate from a remote user 
 function handleCandidate(candidate) { 
-   yourConn.addIceCandidate(new RTCIceCandidate(candidate)); 
+   peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); 
 };
    
+function handleLeave() { 
+   peerConnection.close(); 
+   peerConnection=undefined;
+};
+
 //hang up 
+/*
 hangUpBtn.addEventListener("click", function () { 
 
    send({ 
@@ -234,13 +173,6 @@ hangUpBtn.addEventListener("click", function () {
 	
    handleLeave(); 
 });
+*/
   
-function handleLeave() { 
-   connectedUser = null; 
-   remoteVideo.src = null; 
-	
-   yourConn.close(); 
-   yourConn.onicecandidate = null; 
-   yourConn.onaddstream = null; 
-};
 </script>

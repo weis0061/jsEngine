@@ -1,4 +1,4 @@
-export { glsl, modInts, transpose, vertexDeclaration, fragDeclaration, declaration, uv2col, smoothUnion, sphereIntersect, raycastSpheres, setUVsOnQuad, transformPolysToCamera}
+export { glsl, modInts, transpose, vertexDeclaration, fragDeclaration, declaration, uv2col, smoothUnion, sphereIntersect, raycastSpheres, setUVsOnQuad, transformPolysToCamera, drawBlack}
 
 var glsl=x=>x;
 

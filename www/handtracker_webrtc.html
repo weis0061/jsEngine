@@ -1,7 +1,6 @@
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
 <div id = "loginPage" class = "container text-center"> 
 	
@@ -22,7 +21,7 @@
 </div>
 
 <div id = "callPage" class = "call-page"> 
-  <video id = "remoteVideo" autoplay style="height: 50vh;"></video>
+  <video id = "remoteVideo" autoplay></video>
 
   <div class = "row text-center"> 
      <div class = "col-md-12"> 
@@ -46,7 +45,7 @@ conn.onopen = function () {
   
 //when we got a message from a signaling server 
 conn.onmessage = function (msg) { 
-   console.log("Got message", msg.data);
+   console.info("Got message", msg.data);
    if(msg.data==="Hello world"){
       send({ 
          type: "login", 
@@ -116,24 +115,15 @@ async function getHands() {
    const predictions = await model.estimateHands(remoteVideo);
    return predictions;
   }
-  remoteVideo.onloadedmetadata=()=>{
-     function loop(){
-        getHands().then(h=>{
-            if(h[0]){
-               if(remoteVideo.setHands)
-               {
-                  remoteVideo.setHands(h[0].annotations.indexFinger);
-               }
-               console.log(h[0].annotations.indexFinger);
-            }
-            setTimeout(() => {
-               loop();
-            }, 10);
-         });
-     }
-     loop();
-  };
-
+  
+remoteVideo.getHands=getHands;
+window.focused=true;
+window.onblur=(e)=>{
+    window.focused=false;
+}
+window.onfocus=(e)=>{
+    window.focused=true;
+}
 var yourConn; 
 var stream;
   

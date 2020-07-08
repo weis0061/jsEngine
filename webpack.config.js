@@ -3,11 +3,11 @@ const path = require('path');
 module.exports = {
   entry: './main.js',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'www'),
     filename: 'bundle.js'
   },
     devServer: {
-    contentBase: path.join(__dirname, 'dist'),
+    contentBase: path.join(__dirname, 'www'),
     compress: false,
     port: 80
   }

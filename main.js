@@ -16,37 +16,47 @@ camera.position[2]=5;
 window.addEventListener('resize',(ev) => {
     camera.aspectRatio = window.innerWidth / window.innerHeight;
 })
-
-window.setHands=(h)=>{
-    console.log("hand position: "+h);
+var stepInterval=setInterval(step, framerateMs);
+window.focused=true;
+window.onblur=(e)=>{
+    window.focused=false;
+    clearInterval(stepInterval);
+    stepInterval = setInterval(step, 3000);
 }
+window.onfocus=(e)=>{
+    console.log("focus")
+    window.focused=true;
+    clearInterval(stepInterval);
+    stepInterval = setInterval(step, framerateMs);
+}
+var handpositions=[0.0,0.0,0.0];
 var handReader=document.createElement("iframe");
 handReader.src="handtracker_webrtc.html";
 document.body.appendChild(handReader);
 handReader.onload=(e)=>{
-    console.log("iframe onload");
-    // using reference to iframe (ifrm) obtained above
-    var win = handReader.contentWindow; // reference to iframe's window
     // reference to document in iframe
-    var doc = handReader.contentDocument? handReader.contentDocument: handReader.contentWindow.document;
-    console.log(doc.getElementById('remoteVideo'));
-    setInterval(() => {
-            doc.getElementById('remoteVideo').setHands=(indexFinger)=>{
-                console.log(indexFinger[0][0]);//pitch? depth?
-                console.log(indexFinger[0][1]);//x position
-                console.log(indexFinger[0][2]);//?
-            leadingCamera.rotation[0]=indexFinger[0][0]/100;
-            //leadingCamera.rotation[1]=indexFinger[0][1];
-            //leadingCamera.rotation[2]=indexFinger[0][2];
-        }
-    }, 50);
-}
-console.log(handReader);
+    var vid = (handReader.contentDocument? handReader.contentDocument: handReader.contentWindow.document).getElementById('remoteVideo');
+    vid.onloadedmetadata=()=>{
+        var isComputing=false;
+        setInterval(() => {
+           if(isComputing===false && window.focused){
+              isComputing=true;
+              vid.getHands().then(hands=>{
+                isComputing=false;
+                
+                if(!hands[0])return;
+                var indexFinger = hands[0].annotations.indexFinger;
 
-setInterval(() => {
-    //updateSpheres(currentTime);
-}, framerateMs);
-//addSphere(0xffaaaa,scene);
+                handpositions=[indexFinger[0][0],indexFinger[0][1],indexFinger[0][2]];
+                console.log(handpositions);
+
+                leadingCamera.rotation[1]=indexFinger[0][1]/100;
+                leadingCamera.rotation[2]=indexFinger[0][2]/100;
+                });
+              }
+           },32);
+    }
+}
 
 window.addEventListener('keydown',(e)=>{
     switch(e.key){
@@ -59,7 +69,7 @@ window.addEventListener('keydown',(e)=>{
     }
     console.log(leadingCamera.position);
 });
-window.addEventListener('wheel',(e)=>{
+window.addEventListener('wheel',(e)=>{``
     leadingCamera.position[2]+=e.deltaY/60*60;
 });
 window.addEventListener('mousemove',(e)=>{
@@ -69,7 +79,9 @@ window.addEventListener('mousemove',(e)=>{
 
 
 //timing
-setInterval(() => {
+function step(){
+    leadingCamera.position=[math.sin(currentTime), math.cos(currentTime), 1];
+    leadingCamera.rotation=[math.sin]
     var pos = vmath.smoothStep(vmath.vec2array(camera.position), leadingCamera.position, 25 * framerate);
     camera.position.x = pos[0];
     camera.position.y = pos[1];
@@ -78,7 +90,7 @@ setInterval(() => {
     vmath.slerp(out,leadingCamera.rotation,camera.rotation, framerate);
     camera.rotation=out;
     currentTime += framerateMs;
-}, framerateMs);
+}
 
 
 //#region render

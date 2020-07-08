@@ -1,27 +1,26 @@
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
-
-<video autoplay controls id='vid'></video>
-<span id="outp"></span>
 <video id = "localVideo" autoplay></video> 
+<div style="display:flex;">
+   <span id="outp"></span>
+   <span id="outp"></span>
+</div>
 
 <script>
 var name; 
 var connectedUser;
+var outp=document.getElementById("outp");
   
 //connecting to our signaling server
 var conn = new WebSocket('wss://willweissman.com:9090');
+var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
   
 conn.onopen = function () { 
-   console.log("Connected to the signaling server"); 
+   cameraLog("Connected to the signaling server"); 
 };
   
 //when we got a message from a signaling server 
 conn.onmessage = function (msg) { 
-   console.log("Got message", msg.data);
+   cameraLog("Got message" + msg.data);
 	if(msg.data==="Hello world"){
       send({ 
          type: "login", 
@@ -54,7 +53,7 @@ conn.onmessage = function (msg) {
 };
   
 conn.onerror = function (err) { 
-   console.log("Got error", err); 
+   cameraLog("Got error", err); 
 };
   
 //alias for sending JSON encoded messages 
@@ -69,37 +68,36 @@ function send(message) {
   
 var localVideo = document.querySelector('#localVideo'); 
 
-var peerConnection; 
+//using Google public stun server 
+var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
+      
+var peerConnection = new RTCPeerConnection(configuration); 
 var stream;
-  
+
 function handleLogin(success) { 
    if (success === false) { 
-      console.log('login failed');
+      cameraLog('login failed');
    }
    else {
       //getting local video stream 
       navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
          stream = myStream; 
-         
-         connectCameraToHub();
+         //myStream.onaddtrack=(track=>{cameraLog("track added");});
+         var track=stream.getVideoTracks()[0];
+         cameraLog("track: "+track);
          //retry connection if it closes
          setInterval(() => {
-            console.log(peerConnection);
-            if(!peerConnection){
-               console.log('retry');
-               connectCameraToHub();
-            }
+            cameraLog("peer connection:" +peerConnection);
+            cameraLog("retry");
+            connectCameraToHub();
          }, 2500);
+         cameraLog("stream: "+stream);
       }, function (error) { 
-         console.log(error); 
+         cameraLog("ERROR: "+error); 
       }); 
    } 
 };
 var connectCameraToHub=()=>{
-   //using Google public stun server 
-   var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
-      
-   peerConnection = new RTCPeerConnection(configuration); 
    peerConnection.addStream(stream);
             
    peerConnection.onicecandidate = function (event) { 
@@ -110,7 +108,6 @@ var connectCameraToHub=()=>{
          }); 
       } 
    }; 
-
    connectedUser = "hub";
    // create an offer 
    peerConnection.createOffer(function (offer) { 
@@ -121,10 +118,10 @@ var connectCameraToHub=()=>{
       
       peerConnection.setLocalDescription(offer); 
    }, function (error) { 
-      console.log(error); 
+      cameraLog("ERROR: "+error); 
    });
    peerConnection.oniceconnectionstatechange=(e)=>{
-      console.log(e);
+      cameraLog("ICE connection state change: "+e);
    }
 }
 
@@ -144,7 +141,7 @@ function handleOffer(offer, name) {
       }); 
 		
    }, function (error) { 
-      console.log(error); 
+      cameraLog(error); 
    }); 
 };
   
@@ -161,6 +158,12 @@ function handleCandidate(candidate) {
 function handleLeave() { 
    peerConnection.close(); 
    peerConnection=undefined;
+   /*
+      send({ 
+         type: "login", 
+         name: "camera" 
+      }); 
+      */
 };
 
 //hang up 

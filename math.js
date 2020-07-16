@@ -65,3 +65,8 @@ var min=(a,b)=>{
     return r;
 }
 var points2vec=sub;
+
+function rotatePointAroundNormal(point,normal,angle){
+    //this is what quaternions are for
+    console.warn('rotatePointAroundNormal Unimplemented')
+}

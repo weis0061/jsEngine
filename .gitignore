@@ -1,2 +1,5 @@
 node_modules
 NodeServer
+www/bundle.js
+hls.js
+lightgl.js/

@@ -47,11 +47,8 @@ handReader.onload=(e)=>{
                 if(!hands[0])return;
                 var indexFinger = hands[0].annotations.indexFinger;
 
-                handpositions=[indexFinger[0][0],indexFinger[0][1],indexFinger[0][2]];
-                console.log(handpositions);
-
-                leadingCamera.rotation[1]=indexFinger[0][1]/100;
-                leadingCamera.rotation[2]=indexFinger[0][2]/100;
+                handpositions=[indexFinger[0][0]/vid.scrollWidth,indexFinger[0][1]/vid.scrollHeight,indexFinger[0][2]/50];
+                //console.log(handpositions);
                 });
               }
            },32);
@@ -81,7 +78,6 @@ window.addEventListener('mousemove',(e)=>{
 //timing
 function step(){
     leadingCamera.position=[math.sin(currentTime), math.cos(currentTime), 1];
-    leadingCamera.rotation=[math.sin]
     var pos = vmath.smoothStep(vmath.vec2array(camera.position), leadingCamera.position, 25 * framerate);
     camera.position.x = pos[0];
     camera.position.y = pos[1];
@@ -99,7 +95,10 @@ var graphics=require('./graphics');
 import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
 var drawCall=regl({
     frag:graphics.raycastSpheres,
-    vert:declaration+vertexDeclaration+transformPolysToCamera+ glsl`void main(){gl_Position=transformPolysToCamera(); position3d=transformPolysToCamera().xyz;}`,
+    vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
+        position3d=transformPolysToCamera().xyz + indexFinger.xyz;
+        gl_Position=vec4(position3d.x,position3d.y,position3d.z,1);
+    }`,
     attributes:{
         VertexID:regl.buffer([0,1,2,3]),
         position: regl.buffer([
@@ -111,7 +110,8 @@ var drawCall=regl({
         
     uniforms:{
         color:regl.prop('color'),
-        matrix_mv:regl.prop('matrix_mv')
+        matrix_mv:regl.prop('matrix_mv'),
+        indexFinger:regl.prop('indexFinger')
     },
     count:4,
     primitive:"triangle fan",
@@ -143,7 +143,8 @@ regl.frame(()=>{
     });
     drawCall({
         color:[1,0,0,1],
-        matrix_mv:getFlatViewProjectionMatrix()
+        matrix_mv:getFlatViewProjectionMatrix(),
+        indexFinger:handpositions
     });
 });
 //#endregion

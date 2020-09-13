@@ -6,13 +6,29 @@
 </div>
 
 <script>
+var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
+   
+var handReader=document.createElement("iframe");
+handReader.src="handtracker_webrtc.html";
+document.body.appendChild(handReader);
+handReader.onload=(e)=>{
+    // reference to document in iframe
+    var vid = (handReader.contentDocument? handReader.contentDocument: handReader.contentWindow.document).getElementById('remoteVideo');
+    vid.onloadedmetadata=()=>{
+        var isComputing=false;
+        setInterval(() => {
+           if(isComputing===false && window.focused){
+              isComputing=true;
+              vid.getHands().then(hands=>{cameraLog('computed'); isComputing=false; });}
+           },32);
+    }
+}
 var name; 
 var connectedUser;
 var outp=document.getElementById("outp");
   
 //connecting to our signaling server
 var conn = new WebSocket('wss://willweissman.com:9090');
-var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
   
 conn.onopen = function () { 
    cameraLog("Connected to the signaling server"); 
@@ -37,8 +53,8 @@ conn.onmessage = function (msg) {
       case "offer": 
          handleOffer(data.offer, data.name); 
          break; 
-      case "answer": 
-         handleAnswer(data.answer); 
+      case "answer":
+         peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
          break; 
       //when a remote peer sends an ice candidate to us 
       case "candidate": 
@@ -99,6 +115,7 @@ function handleLogin(success) {
 };
 var connectCameraToHub=()=>{
    peerConnection.addStream(stream);
+   peerConnection.addStream(new MediaStream([new MediaStreamTrack()]));
             
    peerConnection.onicecandidate = function (event) { 
       if (event.candidate) { 
@@ -147,7 +164,6 @@ function handleOffer(offer, name) {
   
 //when we got an answer from a remote user
 function handleAnswer(answer) { 
-   peerConnection.setRemoteDescription(new RTCSessionDescription(answer)); 
 };
   
 //when we got an ice candidate from a remote user 

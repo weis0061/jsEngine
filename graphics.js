@@ -29,7 +29,7 @@ mediump mat4 transpose(in highp mat4 inMatrix) {
 }`;
 
 var vertexDeclaration=glsl`
-    attribute vec2 position;
+    attribute vec3 position;
     attribute float VertexID;
     varying vec3 position3d;`;
 var fragDeclaration=glsl`
@@ -108,5 +108,28 @@ var setUVsOnQuad=
     }`;
 
     var transformPolysToCamera=glsl`vec4 transformPolysToCamera(){
-        return vec4(position.x,position.y,0,1)*matrix_mv;
+        return vec4(position.x,position.y,position.z,1)*matrix_mv;
     }`;
+
+//might move this elsewhere
+export {flattenMatrix, flatten3dMatrix, flattenNdMatrix};
+var flattenMatrix=(matrix)=>{
+    var flatMatrix=[];
+    matrix.forEach(row=>{
+        flatMatrix=flatMatrix.concat(row);
+    });
+    return flatMatrix;
+}
+var flattenNdMatrix=(matrix,dimensions)=>{
+    dimensions=dimensions-1;
+    if(dimensions<1) return matrix;
+    var flatMatrix=[];
+    matrix.forEach(row=>{
+        flatMatrix=flatMatrix.concat(flattenNdMatrix(row,dimensions));
+    });
+    return flatMatrix;
+}
+
+var flatten3dMatrix=(matrix)=>{
+    return flattenNdMatrix(matrix,3);
+}

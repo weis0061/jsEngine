@@ -88,34 +88,39 @@ function step(){
     currentTime += framerateMs;
 }
 
+var world=require('./world');
 
 //#region render
 var glsl=x=>x;
 var graphics=require('./graphics');
 import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
-var drawCall=regl({
-    frag:graphics.raycastSpheres,
-    vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
-        position3d=transformPolysToCamera().xyz + indexFinger.xyz;
-        gl_Position=vec4(position3d.x,position3d.y,position3d.z,1);
-    }`,
-    attributes:{
-        VertexID:regl.buffer([0,1,2,3]),
-        position: regl.buffer([
-            1,1,
-            -1,1,
-            -1,-1,
-            1,-1])
-    },
-        
-    uniforms:{
-        color:regl.prop('color'),
-        matrix_mv:regl.prop('matrix_mv'),
-        indexFinger:regl.prop('indexFinger')
-    },
-    count:4,
-    primitive:"triangle fan",
-});
+var drawCall=()=>{
+    var vertexIds=[];
+    for(var i=0;i<world.triCount;i++){
+        vertexIds.push(i*3);
+        vertexIds.push(i*3+1);
+        vertexIds.push(i*3+2);
+    }
+        return regl({
+            frag:graphics.raycastSpheres,
+            vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
+            position3d=transformPolysToCamera().xyz + indexFinger.xyz;
+            gl_Position=vec4(position3d.x,position3d.y,position3d.z,1);
+        }`,
+        attributes:{
+            VertexID:regl.buffer(vertexIds),
+            position: regl.buffer(world.tris)
+        },
+            
+        uniforms:{
+            color:regl.prop('color'),
+            matrix_mv:regl.prop('matrix_mv'),
+            indexFinger:regl.prop('indexFinger')
+        },
+        count:4,
+        primitive:"triangle fan",
+    });
+}
 var getViewProjectionMatrix=()=>{
     var xaxis=[math.cos(camera.rotation[1]), 0, -math.sin(camera.rotation[1])];
     var yaxis=[math.sin(camera.rotation[1])*math.sin(camera.rotation[0]),math.cos(camera.rotation[0]), math.cos(camera.rotation[1])*math.sin(camera.rotation[0])];
@@ -127,15 +132,7 @@ var getViewProjectionMatrix=()=>{
         [-math.dot(xaxis,camera.position), -math.dot(yaxis,camera.position), -math.dot(zaxis,camera.position), 1]
     ];
 }
-var getFlatViewProjectionMatrix=()=>{
-    var mvp=getViewProjectionMatrix();
-    var flatVP=[];
-    mvp.forEach(row=>{
-        flatVP=flatVP.concat(row);
-    });
-    return flatVP;
-}
-
+import {flattenMatrix} from './graphics';
 regl.frame(()=>{
     regl.clear({
         color:[0.3,0.8,0.9,0],
@@ -143,7 +140,7 @@ regl.frame(()=>{
     });
     drawCall({
         color:[1,0,0,1],
-        matrix_mv:getFlatViewProjectionMatrix(),
+        matrix_mv:flattenMatrix(getViewProjectionMatrix()),
         indexFinger:handpositions
     });
 });

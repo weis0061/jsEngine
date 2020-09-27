@@ -9,10 +9,10 @@ var framerateMs=framerate*1000;
 var currentTime = 0;
 var camera ={fov:90, aspectRatio: window.innerWidth / window.innerHeight,
      near: 0.01, far: 2000,
-     position:[0.0,0.0,5.0],
+     position:[0.0,0.0,0.0],
      rotation:[0,0,0,1]};
 var leadingCamera={fov:90,position:[0,0,0],rotation:[0,0,0,1]}
-camera.position[2]=5;
+camera.position[2]=0.0;
 window.addEventListener('resize',(ev) => {
     camera.aspectRatio = window.innerWidth / window.innerHeight;
 })
@@ -48,7 +48,6 @@ handReader.onload=(e)=>{
                 var indexFinger = hands[0].annotations.indexFinger;
 
                 handpositions=[indexFinger[0][0]/vid.scrollWidth,indexFinger[0][1]/vid.scrollHeight,indexFinger[0][2]/50];
-                //console.log(handpositions);
                 });
               }
            },32);
@@ -57,11 +56,15 @@ handReader.onload=(e)=>{
 
 window.addEventListener('keydown',(e)=>{
     switch(e.key){
+        case "w":
         case "ArrowUp":leadingCamera.position[1]+=framerate*30;break;
+        case "s":
         case "ArrowDown":leadingCamera.position[1]-=framerate*30;break;
         case "-":leadingCamera.position[2]+=framerate*30;break;
         case "+":leadingCamera.position[2]-=framerate*30;break;
+        case "a":
         case "ArrowRight":leadingCamera.position[0]+=framerate*30;break;
+        case "d":
         case "ArrowLeft":leadingCamera.position[0]-=framerate*30;break;
     }
     console.log(leadingCamera.position);
@@ -90,26 +93,34 @@ function step(){
 
 var world=require('./world');
 
+var vertexIds=[];
+var verts=[];
+for(var i=0;i<world.triCount;i++){
+    vertexIds.push(i*3);
+    vertexIds.push(i*3+1);
+    vertexIds.push(i*3+2);
+    verts.push(world.tris[i]);
+}
+verts=flattenMatrix(verts);
 //#region render
 var glsl=x=>x;
 var graphics=require('./graphics');
 import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
-var drawCall=()=>{
-    var vertexIds=[];
-    for(var i=0;i<world.triCount;i++){
-        vertexIds.push(i*3);
-        vertexIds.push(i*3+1);
-        vertexIds.push(i*3+2);
-    }
-        return regl({
-            frag:graphics.raycastSpheres,
+var reglCompiled=0;
+const drawCall=()=>{
+    //console.log(flattenMatrix(getViewProjectionMatrix()));
+    //calling this is laggy
+
+    if(reglCompiled) return reglCompiled;
+    else reglCompiled=regl({
+            frag:graphics.drawBlack,
             vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
             position3d=transformPolysToCamera().xyz + indexFinger.xyz;
             gl_Position=vec4(position3d.x,position3d.y,position3d.z,1);
         }`,
         attributes:{
             VertexID:regl.buffer(vertexIds),
-            position: regl.buffer(world.tris)
+            position: regl.buffer(verts)
         },
             
         uniforms:{
@@ -120,6 +131,8 @@ var drawCall=()=>{
         count:4,
         primitive:"triangle fan",
     });
+    console.info("regl compiled");
+    return reglCompiled;
 }
 var getViewProjectionMatrix=()=>{
     var xaxis=[math.cos(camera.rotation[1]), 0, -math.sin(camera.rotation[1])];
@@ -133,7 +146,14 @@ var getViewProjectionMatrix=()=>{
     ];
 }
 import {flattenMatrix} from './graphics';
+var lastSync=currentTime;
 regl.frame(()=>{
+    console.log(lastSync+framerateMs<currentTime);
+    //if the fps is lower and we're ready too early, skip drawing
+    if(lastSync+framerateMs>currentTime) return;
+    lastSync=currentTime;
+    console.log(flattenMatrix(getViewProjectionMatrix()));
+
     regl.clear({
         color:[0.3,0.8,0.9,0],
         depth:1

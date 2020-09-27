@@ -51,7 +51,7 @@ export var addCube=(position, scale)=>{
     addTriangle([[
         [position[0]-scale[0]/2.0,position[1]-scale[1]/2.0,position[2]-scale[2]/2.0],
         [position[0]+scale[0]/2.0,position[1]-scale[1]/2.0,position[2]-scale[2]/2.0],
-        [position[0]-scale[0]/2.0,position[1]+scale[1]/2.0,position[2]-scale[2]/2.0]]
+        [position[0]-scale[0] /2.0,position[1]+scale[1]/2.0,position[2]-scale[2]/2.0]]
     ]);
     
     addTriangle([[

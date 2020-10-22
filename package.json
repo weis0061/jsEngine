@@ -14,7 +14,7 @@
     "@tensorflow/tfjs-converter": "^1.7.2",
     "@tensorflow/tfjs-core": "^1.7.2",
     "debounce": "^1.2.0",
-    "mathjs": "^6.6.1",
+    "mathjs": "^6.6.5",
     "ml-matrix": "^6.4.1",
     "nurbs": "^1.1.0",
     "quat-slerp": "^1.0.1",

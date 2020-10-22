@@ -1,14 +1,18 @@
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-<video id = "localVideo" autoplay></video> 
-<div style="display:flex;">
+<video id = "localVideo" autoplay style="width: 50vw;height: 50vh;left:0;right:50vw;top:0;bottom: 50vh;"></video> 
+<div style="top:0;right:0;left:50vw;bottom:50vh;">
    <span id="outp"></span>
-   <span id="outp"></span>
+   <input id="inpt" placeholder="Code" style="width: 10em;height:1em;"></span>
+<button id="connectButton">Connect</button>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script>
 var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
-   
 var handReader=document.createElement("iframe");
+handReader.style.width="100vw";
+handReader.style.top="50vh";
+handReader.style.bottom="0";
 handReader.src="handtracker_webrtc.html";
 document.body.appendChild(handReader);
 handReader.onload=(e)=>{
@@ -26,14 +30,48 @@ handReader.onload=(e)=>{
 var name; 
 var connectedUser;
 var outp=document.getElementById("outp");
-  
+var inpt=document.getElementById("inpt");
+var connectButton=document.getElementById("connectButton");
+
+
+//using Google public stun server 
+var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
+      
+var peerConnection = new RTCPeerConnection(configuration); 
+var stream;
+var id;
+
+cameraLog('hello'); 
+peerConnection.onicecandidate=(ev)=>{$.post("https://willweissman.com/p2p", {id:id,candidate:ev.candidate})};
+peerConnection.createOffer(offer=>{
+   cameraLog(offer);
+   peerConnection.setLocalDescription(offer);
+   $.post("https://willweissman.com/p2p",{id:id, offer:offer},response=>{
+   peerConnection.setRemoteDescription(response);
+   peerConnection.createAnswer(a=>peerConnection.setLocalDescription(a));
+})});
+
+
+
+navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
+         stream = myStream; 
+         //myStream.onaddtrack=(track=>{cameraLog("track added");});
+         var track=stream.getVideoTracks()[0];
+         cameraLog("track: "+track);
+
+
+      });
+
 //connecting to our signaling server
 var conn = new WebSocket('wss://willweissman.com:9090');
   
 conn.onopen = function () { 
    cameraLog("Connected to the signaling server"); 
+   peerConnection.createOffer(offer=>{
+      conn.send({desc: offer, id: id});
+      peerConnection.setLocalDescription(offer);
+   });
 };
-  
 //when we got a message from a signaling server 
 conn.onmessage = function (msg) { 
    cameraLog("Got message" + msg.data);
@@ -69,11 +107,13 @@ conn.onmessage = function (msg) {
 };
   
 conn.onerror = function (err) { 
-   cameraLog("Got error", err); 
+   cameraLog("Got error: ", err);
+   cameraLog(err); 
 };
   
 //alias for sending JSON encoded messages 
 function send(message) { 
+   cameraLog("sending: "+message);
    //attach the other peer username to our messages 
    if (connectedUser) { 
       message.name = connectedUser; 
@@ -84,14 +124,9 @@ function send(message) {
   
 var localVideo = document.querySelector('#localVideo'); 
 
-//using Google public stun server 
-var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
-      
-var peerConnection = new RTCPeerConnection(configuration); 
-var stream;
 
-function handleLogin(success) { 
-   if (success === false) { 
+function handleLogin(success) {
+   if (success === false) {
       cameraLog('login failed');
    }
    else {
@@ -101,9 +136,11 @@ function handleLogin(success) {
          //myStream.onaddtrack=(track=>{cameraLog("track added");});
          var track=stream.getVideoTracks()[0];
          cameraLog("track: "+track);
+            connectCameraToHub();
          //retry connection if it closes
          setInterval(() => {
             cameraLog("peer connection:" +peerConnection);
+            if(!peerConnection)return;
             cameraLog("retry");
             connectCameraToHub();
          }, 2500);
@@ -123,7 +160,7 @@ var connectCameraToHub=()=>{
             type: "candidate", 
             candidate: event.candidate 
          }); 
-      } 
+      }
    }; 
    connectedUser = "hub";
    // create an offer 
@@ -193,5 +230,4 @@ hangUpBtn.addEventListener("click", function () {
    handleLeave(); 
 });
 */
-  
 </script>

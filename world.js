@@ -41,7 +41,7 @@ export var addCube=(position, scale)=>{
     addTriangle([[
         [position[0]+scale[0]/2.0,position[1]-scale[1]/2.0,position[2]+scale[2]/2.0],
         [position[0]-scale[0]/2.0,position[1]-scale[1]/2.0,position[2]+scale[2]/2.0],
-        [position[0]-scale[0]/2.0,position[1]+scale[1]/2.0,position[2]+scale[2]/2.0]]
+        [position[0]+scale[0]/2.0,position[1]+scale[1]/2.0,position[2]+scale[2]/2.0]]
     ]);
     addTriangle([[
         [position[0]-scale[0]/2.0,position[1]+scale[1]/2.0,position[2]-scale[2]/2.0],
@@ -51,7 +51,7 @@ export var addCube=(position, scale)=>{
     addTriangle([[
         [position[0]-scale[0]/2.0,position[1]-scale[1]/2.0,position[2]-scale[2]/2.0],
         [position[0]+scale[0]/2.0,position[1]-scale[1]/2.0,position[2]-scale[2]/2.0],
-        [position[0]-scale[0] /2.0,position[1]+scale[1]/2.0,position[2]-scale[2]/2.0]]
+        [position[0]+scale[0]/2.0,position[1]+scale[1]/2.0,position[2]-scale[2]/2.0]]
     ]);
     
     addTriangle([[
@@ -87,3 +87,8 @@ var addQuad=(position,direction,width,height)=>{
 
 addCube([0,0,0],[1,1,1]);
 addCube([0,0.5,0.5],[1,1,1]);
+addCube([1,1,1],[1,1,1]);
+addCube([3,3,3],[1,1,1]);
+addCube([15,15,15],[5,5,5]);
+addCube([12,3,3],[5,5,5]);
+addCube([4,4,4],[2,2,2]);

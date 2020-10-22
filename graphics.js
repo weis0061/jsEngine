@@ -1,4 +1,6 @@
-export { glsl, modInts, transpose, vertexDeclaration, fragDeclaration, declaration, uv2col, smoothUnion, sphereIntersect, raycastSpheres, setUVsOnQuad, transformPolysToCamera, drawBlack}
+import { cos, sin } from "mathjs";
+
+export { glsl, drawPosition, modInts, transpose, vertexDeclaration, fragDeclaration, declaration, uv2col, smoothUnion, sphereIntersect, raycastSpheres, setUVsOnQuad, transformPolysToCamera, drawBlack}
 
 var glsl=x=>x;
 
@@ -28,15 +30,16 @@ mediump mat4 transpose(in highp mat4 inMatrix) {
     return outMatrix;
 }`;
 
+var highPrecisionFloat=glsl`precision highp float;`;
 var vertexDeclaration=glsl`
     attribute vec3 position;
     attribute float VertexID;
     varying vec3 position3d;`;
-var fragDeclaration=glsl`
+var fragDeclaration=highPrecisionFloat+glsl`
     uniform vec4 color;
     varying vec3 position3d;`;
 var declaration=glsl`
-    precision mediump float;
+    precision highp float;
     varying vec2 uv;
     uniform mat4 matrix_mv;`+modInts+transpose;
 var uv2col=""+glsl`vec4 uv2col(){
@@ -75,6 +78,7 @@ var raycastSpheres=""+smoothUnion+sphereIntersect+glsl`void main(){
 }`;
 var drawUvs=declaration+uv2col+glsl`void main(){gl_FragColor=uv2col();}`;
 var drawBlack=declaration+glsl`void main(){gl_FragColor=vec4(0,0,0,1);}`;
+var drawPosition=declaration+glsl`void main(){gl_FragColor=vec4(position3d.x,position3d.y,position3d.z,1);}`;
 
 raycastSpheres=
     declaration+
@@ -133,3 +137,46 @@ var flattenNdMatrix=(matrix,dimensions)=>{
 var flatten3dMatrix=(matrix)=>{
     return flattenNdMatrix(matrix,3);
 }
+export var createTranslationMatrix=(x,y,z)=>{
+    if(!z)
+    {
+        y=x[1];
+        z=x[2];
+        x=x[0];
+    }
+    return [
+    [1,0,0,x],
+    [0,1,0,y],
+    [0,0,1,z],
+    [0,0,0,1]
+]};
+export var createScaleMatrix=(x,y,z)=>[
+    [x,0,0,0],
+    [0,y,0,0],
+    [0,0,z,0],
+    [0,0,0,1]
+];
+export var rotationAroundXMatrix=(r)=>[
+    [1,0,0,0],
+    [0,cos(r),-sin(r),0],
+    [0,sin(r),cos(r),0],
+    [0,0,0,1]
+];
+export var rotationAroundYMatrix=(r)=>[
+    [cos(r),0,sin(r),0],
+    [0,1,0,0],
+    [-sin(r),0,cos(r),0],
+    [0,0,0,1]
+];
+export var rotationAroundZMatrix=(r)=>[
+    [cos(r),-sin(r),0,0],
+    [sin(r),cos(r),0,0],
+    [0,0,1,0],
+    [0,0,0,1]
+];
+export var identity=()=>[
+    [1,0,0,0],
+    [0,1,0,0],
+    [0,0,1,0],
+    [0,0,0,1]
+];

@@ -138,7 +138,7 @@ var flatten3dMatrix=(matrix)=>{
     return flattenNdMatrix(matrix,3);
 }
 export var createTranslationMatrix=(x,y,z)=>{
-    if(!z)
+    if(z==undefined)
     {
         y=x[1];
         z=x[2];
@@ -149,6 +149,18 @@ export var createTranslationMatrix=(x,y,z)=>{
     [0,1,0,y],
     [0,0,1,z],
     [0,0,0,1]
+]};
+export var create3x3TranslationMatrix=(x,y,z)=>{
+    if(z==undefined)
+    {
+        y=x[1];
+        z=x[2];
+        x=x[0];
+    }
+    return [
+    [1,0,0,x],
+    [0,1,0,y],
+    [0,0,1,z]
 ]};
 export var createScaleMatrix=(x,y,z)=>[
     [x,0,0,0],

@@ -1,17 +1,18 @@
 import * as vmath from './math.js';
 import * as math from 'mathjs';
 //import { addSphere, updateSpheres } from './spheres.js';
+var world=require('./world');
 var regl=require('regl')();
 var Fps = 60;
 var framerate=1/Fps;
 var framerateMs=framerate*1000;
 var currentTime = 0;
-var camera ={fov:90, aspectRatio: window.innerWidth / window.innerHeight,
+const camera ={fov:90, aspectRatio: window.innerWidth / window.innerHeight,
      near: 0.01, far: 2000,
      position:[0.0,0.0,0.0],
      rotation:[0,0,0,1]};
 var leadingCamera={fov:90,position:[0,0,0],rotation:[0,0,0,1]}
-camera.position[2]=0.0;
+var leftEyeCamera,rightEyeCamera={};
 window.addEventListener('resize',(ev) => {
     camera.aspectRatio = window.innerWidth / window.innerHeight;
 })
@@ -30,7 +31,15 @@ window.onfocus=(e)=>{
 }
 var handpositions=[0.0,0.0,0.0];
 var handReader=document.createElement("iframe");
-handReader.src="handtracker_local.html";
+var outp=document.createElement("span");
+outp.style.width="100vw";
+outp.style.height="100vh";
+outp.style.position="absolute";
+document.body.appendChild(outp);
+var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
+
+
+handReader.src="camera.html";
 document.body.appendChild(handReader);
 handReader.onload=(e)=>{
     // reference to document in iframe
@@ -38,21 +47,46 @@ handReader.onload=(e)=>{
     vid.onloadedmetadata=()=>{
         var isComputing=false;
         setInterval(() => {
+        if(vid.getHands==undefined)return;
            if(isComputing===false && window.focused){
               isComputing=true;
-              vid.getHands().then(hands=>{
-                isComputing=false;
-                
-                if(!hands[0])return;
-                var indexFinger = hands[0].annotations.indexFinger;
+                try
+                {
+                    vid.getHands().then(hands=>{
+                    cameraLog("computed!");
+                    isComputing=false;
+                    if(!hands[0])return;
+                    var indexFinger = hands[0].annotations.indexFinger;
 
-                handpositions=[indexFinger[0][0]/vid.scrollWidth,indexFinger[0][1]/vid.scrollHeight,indexFinger[0][2]/50];
-                });
-                leadingCamera.position=handpositions;
-              }
+                    handpositions=[indexFinger[0][0]/vid.scrollWidth,indexFinger[0][1]/vid.scrollHeight,indexFinger[0][2]/50];
+                    cameraLog(handpositions);
+                    leadingCamera.position=handpositions;
+                    });
+                }
+                catch(err){
+                    cameraLog(err);
+                    isComputing=false;
+                }
+            }
            },32);
+        cameraLog('video loaded');
+    setTimeout(() => {
+        world.addCube(math.add(leadingCamera.position,[30.0,0.0,0.0]), [20.0,20.0,20.0] );
+        world.addCube(math.add(leadingCamera.position,[0.0,30.0,0.0]), [20.0,20.0,20.0] );
+        world.addCube(math.add(leadingCamera.position,[0.0,0.0,30.0]), [20.0,20.0,20.0] );
+        world.addCube(math.add(leadingCamera.position,[-30.0,0.0,0.0]), [20.0,20.0,20.0] );
+        world.addCube(math.add(leadingCamera.position,[0.0,-30.0,0.0]), [20.0,20.0,20.0] );
+        world.addCube(math.add(leadingCamera.position,[0.0,0.0,-30.0]), [20.0,20.0,20.0] );
+        cameraLog('cubes added');
+    }, 5000);
     }
 }
+setInterval(() => {
+    var s=outp.innerText.length-100;
+    if(s<0)s=0;
+    outp.innerText=outp.innerText.slice(s, outp.innerText.length);
+}, 10000);
+handReader.style="opacity: 0.5;width:100vw;height:100vh;position:absolute";
 
 var inputLoop=(key)=>{
     switch(key){
@@ -99,10 +133,21 @@ function step(){
     var out=[0,0,0,1];
     vmath.slerp(out, leadingCamera.rotation, camera.rotation, framerate);
     camera.rotation=out;
+
     currentTime += framerateMs;
+    // return;
+    //TODO idk why the translations arent working
+    var camclone = JSON.stringify(leadingCamera);
+    leftEyeCamera = JSON.parse(camclone);
+    rightEyeCamera = JSON.parse(camclone);
+    leftEyeCamera.position[2]=3;
+    rightEyeCamera.position[2]=4;
+    /*
+    leftEyeCamera.position = math.multiply(leadingCamera.position, graphics.create3x3TranslationMatrix(1.0,0.0,0.0));
+    rightEyeCamera.position = math.multiply(leadingCamera.position, graphics.create3x3TranslationMatrix(-1.0,0.0,0.0));*/
+
 }
 
-var world=require('./world');
 world.addCube([0.5,0.5,0.5],[0.2,0.3,0.5]);
 //#region render
 var vertexIds=[];
@@ -117,32 +162,57 @@ verts=flattenMatrix(verts);
 var glsl=x=>x;
 var graphics=require('./graphics');
 import {declaration,vertexDeclaration,transformPolysToCamera, fragDeclaration} from './graphics';
-var reglCompiled=0;
-const drawCall=(props)=>{
+var reglLeftEye=0;
+var reglRightEye=0;
+const drawCall=(properties)=>{ 
     //calling this is laggy
 
-    if(reglCompiled) return reglCompiled(props);
-    else reglCompiled=regl({
+    if(!reglLeftEye)
+    {
+        reglLeftEye=regl({
             frag:fragDeclaration+ graphics.drawPosition,
             vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
             position3d=position.xyz+indexFinger.xyz;
             gl_Position=transformPolysToCamera();
-        }`,
-        attributes:{
-            VertexID:regl.buffer(vertexIds),
-            position: regl.buffer(verts)
-        },
-            
-        uniforms:{
-            color:regl.prop('color'),
-            matrix_mv:regl.prop('matrix_mv'),
-            indexFinger:regl.prop('indexFinger')
-        },
-        count:world.triCount*3,
-        primitive:"triangles",
-    });
-    console.info("regl compiled");
-    return reglCompiled(props);
+            }`,
+            attributes:{
+                VertexID:regl.buffer(vertexIds),
+                position: regl.buffer(verts)
+            },
+                
+            uniforms:{
+                color:regl.prop('color'),
+                matrix_mv:regl.prop('matrix_mv'),
+                indexFinger:regl.prop('indexFinger')
+            },
+            count:world.triCount*3,
+            primitive:"triangles",viewport:{x:0,y:0,width:window.innerWidth/2,height:window.innerHeight}
+            });
+        reglRightEye=regl({
+            frag:fragDeclaration+ graphics.drawPosition,
+            vert:declaration+vertexDeclaration+glsl`uniform vec3 indexFinger;`+transformPolysToCamera+ glsl`void main(){
+            position3d=position.xyz+indexFinger.xyz;
+            gl_Position=transformPolysToCamera();
+            }`,
+            attributes:{
+                VertexID:regl.buffer(vertexIds),
+                position: regl.buffer(verts)
+            },
+                
+            uniforms:{
+                color:regl.prop('color'),
+                matrix_mv:regl.prop('matrix_mv'),
+                indexFinger:regl.prop('indexFinger')
+            },
+            count:world.triCount*3,
+            primitive:"triangles",viewport:{x:window.innerWidth/2,y:0,width:window.innerWidth/2,height:window.innerHeight}
+            });
+        console.info("regl compiled");
+    }
+    properties.matrix_mv=flattenMatrix(getViewProjectionMatrix(rightEyeCamera));
+    reglRightEye(properties);
+    properties.matrix_mv=flattenMatrix(getViewProjectionMatrix(leftEyeCamera));
+    return reglLeftEye(properties);
 }
 var getViewProjectionMatrix=(camera)=>{
    var mv=math.multiply(graphics.identity(),graphics.createTranslationMatrix(camera.position));
@@ -160,20 +230,12 @@ var getViewProjectionMatrix=(camera)=>{
     [0,0,-1,0]];
     mv=math.multiply(p,mv);
     return mv;
-        var xaxis=[math.cos(camera.rotation[1]), 0, -math.sin(camera.rotation[1])];
-        var yaxis=[math.sin(camera.rotation[1])*math.sin(camera.rotation[0]),math.cos(camera.rotation[0]), math.cos(camera.rotation[1])*math.sin(camera.rotation[0])];
-        var zaxis=[math.sin(camera.rotation[1])*math.cos(camera.rotation[0]), -math.sin(camera.rotation[0]), math.cos(camera.rotation[0])*math.cos(camera.rotation[1])];
-    return [
-        [xaxis[0],yaxis[0],zaxis[0],0],
-        [xaxis[1],yaxis[1],zaxis[1],0],
-        [xaxis[2],yaxis[2],zaxis[2],0],
-        [-math.dot(xaxis,camera.position), -math.dot(yaxis,camera.position), -math.dot(zaxis,camera.position), 1]
-    ];
 }
 
 import {flattenMatrix} from './graphics';
 import { tan } from 'mathjs';
 var lastSync=currentTime;
+
 regl.frame(()=>{
     //if the fps is lower and we're ready too early, skip drawing
     if(lastSync+framerateMs>currentTime) return;
@@ -183,11 +245,10 @@ regl.frame(()=>{
         color:[0.0,0.0,0.0,0.0],
         depth:1
     });
-
+    
     drawCall({
         color:[1,0,0,1],
-        matrix_mv:flattenMatrix(getViewProjectionMatrix(camera)),
-        indexFinger:handpositions
+        indexFinger:handpositions,
     });
 });
 //#endregion

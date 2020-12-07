@@ -9,6 +9,8 @@ module.exports = {
     devServer: {
     contentBase: path.join(__dirname, 'www'),
     compress: false,
-    port: 80
+    port: 80,
+    disableHostCheck: true,
+    host: '0.0.0.0'
   }
 };

@@ -1,5 +1,6 @@
 node_modules
 NodeServer
+!NodeServer/p2pserver.js
 www/bundle.js
 hls.js
 lightgl.js/

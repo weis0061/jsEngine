@@ -1,7 +1,17 @@
 <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script> -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script> -->
+<script
+			  src="https://code.jquery.com/jquery-3.5.1.min.js"
+			  integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+			  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@tensorflow/tfjs-core@2.1.0/dist/tf-core.js"></script>
+<script src="https://unpkg.com/@tensorflow/tfjs-converter@2.1.0/dist/tf-converter.js"></script>
+<script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@2.1.0/dist/tf-backend-webgl.js"></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu"></script> -->
+<!-- <script src="https://unpkg.com/@tensorflow/tfjs-backend-wasm@2.1.0/dist/tf-backend-wasm.js"></script> -->
+<script src="https://unpkg.com/@tensorflow-models/handpose@0.0.6/dist/handpose.js"></script>
 <div id = "loginPage" class = "container text-center"> 
 	
   <div class = "row"> 
@@ -19,222 +29,86 @@
   </div> 
 
 </div>
-
-<div id = "callPage" class = "call-page"> 
-  <video id = "remoteVideo" autoplay></video>
-
-  <div class = "row text-center"> 
-     <div class = "col-md-12"> 
-      <button id = "hangUpBtn" class = "btn-danger btn">Hang Up</button> 
-     </div>	
-  </div> 
-
-</div>
-<script
-			  src="https://code.jquery.com/jquery-3.5.1.min.js"
-			  integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
-			  crossorigin="anonymous"></script>
+<video id = "remoteVideo"></video>
 <script>
+var model;
+tf.ready().then(
+handpose.load({}).then(m=>{
+   model=m;
+   remoteVideo.getHands=getHands;
+}));
+async function getHands() {
+   const predictions = await model.estimateHands(remoteVideo);
+   return predictions;
+}
 
-var peerConnection=new RTCPeerConnection({"iceServers":[{"urls":["stun:stun2.1.google.com:19302"]}]});
-const handData= peerConnection.createDataChannel('handData');
+var peerConnection=new RTCPeerConnection({"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]});
 var roomId='based shred gobble';
 var id='hub';
 var connectedPeers=[];
+var remoteVideo = document.querySelector('#remoteVideo'); 
+peerConnection.ontrack=(track=>{
+   console.log("track added");
+   remoteVideo.srcObject=new MediaStream([track]);
+   removeVideo.play();
+});
 peerConnection.onicecandidate=(e)=>{
    if(!e.candidate)return;
-   console.log(e);
-   $.post("https://willweissman.com/p2p/",JSON.stringify( { id: id, roomId:roomId, candidate:e.candidate }), (res)=>{ console.log(res);});
+   update({ candidate:e.candidate, candidateFor:"cam" }, (res)=>{stripResponse(res)});
 }
+peerConnection.onsignalingstatechange=
+peerConnection.ondatachannel=
+peerConnection.onicecandidateerror=
+peerConnection.oniceconnectionstatechange=
+peerConnection.onicegatheringstatechange=
+peerConnection.onconnectionstatechange=
+peerConnection.onstatsended=
+e=>{
+   console.log(e);
+}
+peerConnection.onnegotiationneeded=e=>{
+   console.log("negotiation needed event");
+}
+const handData=peerConnection.createDataChannel("handData");
 peerConnection.createOffer(offer=>{
-   console.log(offer);
    peerConnection.setLocalDescription(offer);
-
-   $.post("https://willweissman.com/p2p/",JSON.stringify( { id: id, roomId:roomId, offerFor:'cam', offer:offer }), (res)=>{ console.log(res);});
+   update({ offerFor: "cam", offer: offer }, (res)=>{ stripResponse(res)});
 },err=>{console.log(err);});
-$.post("https://willweissman.com/p2p/",JSON.stringify( { id: id, roomId:roomId, canComputeHands:true }), (res)=>{ console.log(res);});
+update({ canComputeHands: true }, (res)=>{stripResponse(res)});
 setInterval(() => {
-   $.post("https://willweissman.com/p2p/", JSON.stringify( { id: id, roomId:roomId}), res=>{
-      res=JSON.parse(res);
+   update({}, res=>{ stripResponse(res)});
+}, 1000);
+
+//update p2p room data with the server
+function update(data,callback){
+   $.post("https://willweissman.com/p2p/", JSON.stringify(Object.assign({ id: id, roomId: roomId}, data)), res=>{ 
+      return callback(res);
+   });
+}
+
+var stripResponse=(res,callback)=>{
       res.peers.forEach(p => {
          if(!p.canComputeHands && !connectedPeers.some(peer=>peer.id===p.id)){
+            p.lastUpdatedTime=Date.now();
             connectedPeers.push(p);
+            setTimeout(() => {
+               if(!peerConnection.remoteDescription)
+               connectedPeers=connectedPeers.filter((x,i,a)=>{ return x!=p; });
+            }, 10000);
             peerConnection.createOffer(offer=>{
-               $.post("https://willweissman.com/p2p/", JSON.stringify( { id: id, roomId:roomId, offerFor: p.id, offer:offer}, res=>{ }));
+               update( { id: id, roomId:roomId, offerFor: p.id, offer:offer}, res=>{ });
             });
          }
       });
-      if(res.answers)
+      var hub=res.peers.find(x=>x.id===id);
+      if(hub && hub.answersFor)
       {
-         res.answers.forEach(a=>{
+         hub.answersFor.forEach(a=>{
             peerConnection.setRemoteDescription(a);
          });
-         peerConnection.ontrack=(track=>{
-            console.log("track added");
-         })
       }
-   });
-}, 10000);
-/*
-//our username 
-var name; 
-var connectedUser;
-  
-//connecting to our signaling server
-var conn = new WebSocket('wss://willweissman.com:9090');
-  
-conn.onopen = function () { 
-   console.log("Connected to the signaling server"); 
-};
-  
-//when we got a message from a signaling server 
-conn.onmessage = function (msg) { 
-   console.info("Got message", msg.data);
-   if(msg.data==="Hello world"){
-      send({ 
-         type: "login", 
-         name: "hub" 
-      });
-      return;
-   }
-   
-   console.log(msg);
-   var data = JSON.parse(msg.data); 
-	
-   switch(data.type) { 
-      case "login": 
-         break; 
-      //when somebody wants to call us 
-      case "offer": 
-         handleOffer(data.offer, data.name); 
-         break; 
-      case "answer": 
-         handleAnswer(data.answer); 
-         break; 
-      //when a remote peer sends an ice candidate to us 
-      case "candidate": 
-         yourConn.addIceCandidate(new RTCIceCandidate(data.candidate)); 
-         break; 
-      case "leave": 
-         handleLeave(); 
-         break; 
-      default: 
-         break; 
-   }
-};
-  
-conn.onerror = function (err) { 
-   console.log("Got error", err); 
-};
-  
-//alias for sending JSON encoded messages 
-function send(message, err) { 
-   //attach the other peer username to our messages 
-   if (connectedUser) { 
-      message.name = connectedUser; 
-   } 
-	
-   conn.send(JSON.stringify(message)); 
-};
- 
-var loginPage = document.querySelector('#loginPage'); 
-var usernameInput = document.querySelector('#usernameInput'); 
-var loginBtn = document.querySelector('#loginBtn'); 
+      hub.candidates.forEach(x=>peerConnection.addIceCandidate(x));
 
-var callPage = document.querySelector('#callPage'); 
-var callToUsernameInput = document.querySelector('#callToUsernameInput');
-
-var hangUpBtn = document.querySelector('#hangUpBtn');
-  
-var localVideo = document.querySelector('#localVideo'); 
-var remoteVideo = document.querySelector('#remoteVideo'); 
-var model;
-handpose.load().then(m=>{
-   model=m;
-});
-async function getHands(callback) {
-   const predictions = await model.estimateHands(remoteVideo);
-   if(!callback)callback=x=>x;
-   handData.send(JSON.stringify( predictions));
-   return callback(predictions);
-  }
-  
-remoteVideo.getHands=getHands;
-window.focused=true;
-window.onblur=(e)=>{
-    window.focused=false;
+   if(callback) return callback();
 }
-window.onfocus=(e)=>{
-    window.focused=true;
-}
-var stream;
-  
-callPage.style.display = "none";
-//using Google public stun server 
-var configuration = { 
-   "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]
-}; 
-
-const yourConn = new RTCPeerConnection(configuration); 
-//when a remote user adds stream to the peer connection, we display it 
-yourConn.onaddstream = function (e) { 
-   console.log('stream added');
-   console.log(e);
-   remoteVideo.srcObject =(e.stream); 
-};
-
-// Setup ice handling 
-yourConn.onicecandidate = function (event) { 
-   console.log('new ICE candidate');
-   if (event.candidate) { 
-      send({ 
-         type: "candidate", 
-         candidate: event.candidate 
-      }); 
-   } 
-};
- 
-  
-//when somebody sends us an offer 
-function handleOffer(offer, name) { 
-   connectedUser = name; 
-   yourConn.setRemoteDescription(new RTCSessionDescription(offer));
-   //create an answer to an offer 
-   yourConn.createAnswer(function (answer) { 
-      yourConn.setLocalDescription(answer); 
-      
-      send({ 
-         type: "answer", 
-         answer: answer 
-      }); 
-      
-   }, function (error) { 
-      alert("Error when creating an answer: "+error); 
-   }); 
-};
-console.log(handData);
-//when we got an answer from a remote user
-function handleAnswer(answer) { 
-   yourConn.setRemoteDescription(new RTCSessionDescription(answer));
-   handData.send('hand data channel open');
-};
-   
-//hang up 
-hangUpBtn.addEventListener("click", function () { 
-
-   send({ 
-      type: "leave" 
-   });  
-	
-   handleLeave(); 
-});
-  
-function handleLeave() { 
-   connectedUser = null; 
-   remoteVideo.src = null; 
-	
-   yourConn.close(); 
-   yourConn.onaddstream = null; 
-};
-*/
 </script>

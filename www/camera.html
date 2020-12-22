@@ -15,238 +15,75 @@ var outp=document.getElementById("outp");
 var inpt=document.getElementById("inpt");
 var connectButton=document.getElementById("connectButton");
 
-
-//using Google public stun server 
-var configuration = { "iceServers": [{ "url": "stun:stun2.1.google.com:19302" }]}; 
-      
-var peerConnection = new RTCPeerConnection(configuration); 
+var peerConnection=new RTCPeerConnection({"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]});
 var stream;
 var id='cam';
 var roomId = 'based shred gobble';
-/*
-peerConnection.onicecandidate=(ev)=>{$.post("https://willweissman.com/p2p", {id:id,candidate:ev.candidate})};
-peerConnection.createOffer(offer=>{
-   cameraLog(offer);
-   peerConnection.setLocalDescription(offer);
-   $.post("https://willweissman.com/p2p",{id:id, offer:offer},response=>{
-   peerConnection.setRemoteDescription(response);
-   peerConnection.createAnswer(a=>peerConnection.setLocalDescription(a));
-})});
-*/
+var hands;
+peerConnection.onicecandidate=(e)=>{
+   if(!e.candidate)return;
+   console.log(e);
+   update( {candidate:e.candidate, candidateFor:"hub" }, (res)=>{ stripResponse(res) });
+}
+peerConnection.onconnectionstatechange=e=>{
+   cameraLog(e);
+}
+peerConnection.ondatachannel=e=>{
+    
+   e.channel.onmessage=(m)=>{
+      hands=m;
+   }
+}
 setInterval(() => {
-   outp.innerText="";
+   //outp.innerText="";
 }, 45000);
 
 navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
-         stream = myStream; 
-         var track=stream.getVideoTracks()[0];
-         peerConnection.addTrack(track);
-         cameraLog("track: "+track);
+      stream = myStream; 
+      var track=stream.getVideoTracks()[0];
+      peerConnection.addTrack(track);
+      cameraLog("track: "+track);
+   });
+   
+   //connecting to our signaling server
+   var conn = new WebSocket('wss://willweissman.com:9090');
+   var candidates=[];
+   setInterval(()=>{
+      update( {  },(res)=>{
+         stripResponse(res);
       });
-
-//connecting to our signaling server
-var conn = new WebSocket('wss://willweissman.com:9090');
-var candidates=[];
-
-$.post("https://willweissman.com/p2p/", JSON.stringify( { id: id, roomId:roomId }),(res)=>{
-   res=JSON.parse(res);
-   cameraLog(res);
+   },5000);
+   
+//update p2p room data with the server
+var update=(data,callback)=>{
+   $.post("https://willweissman.com/p2p/", JSON.stringify(Object.assign({ id: id, roomId: roomId}, data)), res=>{ 
+      return callback(res);
+   });
+}
+var stripResponse=(res, callback)=>{
+   {
       if(res.peers){
-         var hub=peers.find(x=>x.canComputeHands);
-         var cam=peers.find(x=>x.id===id);
+         var hub=res.peers.find(x=>x.canComputeHands);
+         var cam=res.peers.find(x=>x.id===id);
          if(hub){
             cameraLog('hub found');
-            cam.offersFor.foreach(x=>{
+            cam.offersFor.forEach(x=>{
                cameraLog('offer: '+x);
                peerConnection.setRemoteDescription(x);
                peerConnection.createAnswer(y=>{
+                  cameraLog('creating answer');
                   peerConnection.setLocalDescription(y);
-                  $.post("https://willweissman.com/p2p/",JSON.stringify( { id: id, roomId:roomId, answer: y, answerFor: hub.id}),(res)=>{ cameraLog('answer sent to p2p'); });
-               })
+                  update( { id: id, roomId:roomId, answer: y, answerFor: hub.id}, (res)=>{ cameraLog('answer sent to p2p'); });
+               },err=>{
+                  cameraLog(err);
+               });
             });
-            if(hub.candidate && !candidates.any(hub.candidate))
-            peerConnection.addIceCandidate(new RTCIceCandidate(hub.candidate)); 
+            cam.candidates.forEach(x=>peerConnection.addIceCandidate(x));
          }
          else cameraLog('no hub');
       }
-   });
-
-conn.onopen = function () { 
-   cameraLog("Connected to the signaling server"); 
-   peerConnection.createOffer(offer=>{
-      conn.send({desc: offer, id: id});
-      peerConnection.setLocalDescription(offer);
-   });
-};
-//when we got a message from a signaling server 
-conn.onmessage = function (msg) { 
-   cameraLog("Got message" + msg.data);
-	if(msg.data==="Hello world"){
-      send({ 
-         type: "login", 
-         name: "camera" 
-      }); 
-   }
-   var data = JSON.parse(msg.data); 
-	
-   switch(data.type) { 
-      case "login": 
-         handleLogin(data.success); 
-         break; 
-      //when somebody wants to call us 
-      case "offer": 
-         handleOffer(data.offer, data.name); 
-         break; 
-      case "answer":
-         peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-         peerConnection.ondatachannel=(e=>{
-            e.channel.onmessage=ev=>{
-               cameraLog(ev);
-            };
-         });
-         break; 
-      //when a remote peer sends an ice candidate to us 
-      case "candidate": 
-         handleCandidate(data.candidate); 
-         break; 
-      case "leave": 
-         handleLeave(); 
-         break; 
-      default: 
-         break; 
+      if(callback) return callback();
    }
 };
-  
-conn.onerror = function (err) { 
-   cameraLog("Got error: ", err);
-   cameraLog(err); 
-};
-  
-//alias for sending JSON encoded messages 
-function send(message) { 
-   cameraLog("sending: "+JSON.stringify( message));
-   //attach the other peer username to our messages 
-   if (connectedUser) { 
-      message.name = connectedUser; 
-   } 
-	
-   conn.send(JSON.stringify(message)); 
-};
-  
-var localVideo = document.querySelector('#localVideo'); 
 
-
-function handleLogin(success) {
-   if (success === false) {
-      cameraLog('login failed');
-   }
-   else {
-      //getting local video stream 
-      navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
-         stream = myStream; 
-         
-         //allow checking for peers now
-         peerConnection.onicecandidate = function (event) { 
-            if (event.candidate) { 
-               send({ 
-                  type: "candidate", 
-                  candidate: event.candidate 
-               }); 
-            }
-         }; 
-         
-         //myStream.onaddtrack=(track=>{cameraLog("track added");});
-         var track=stream.getVideoTracks()[0];
-         cameraLog("track: "+track);
-            connectCameraToHub();
-         //retry connection if it closes
-         /*
-         setInterval(() => {
-            cameraLog("peer connection:" +peerConnection);
-            if(!peerConnection)return;
-            cameraLog("retry");
-            connectCameraToHub();
-         }, 2500);
-         */
-         cameraLog("stream: "+stream);
-      }, function (error) { 
-         cameraLog("ERROR: "+error); 
-      }); 
-   } 
-};
-var connectCameraToHub=()=>{
-   peerConnection.addStream(stream);
-            
-   connectedUser = "hub";
-   // create an offer 
-   peerConnection.createOffer(function (offer) { 
-      send({ 
-         type: "offer", 
-         offer: offer ,
-         name:"camera"
-      }); 
-      
-      peerConnection.setLocalDescription(offer); 
-   }, function (error) { 
-      cameraLog("ERROR: "+error); 
-   });
-   peerConnection.oniceconnectionstatechange=(e)=>{
-      cameraLog("ICE connection state change: "+e);
-   }
-}
-
-  
-//when somebody sends us an offer 
-function handleOffer(offer, name) { 
-   connectedUser = name; 
-   peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      
-   //create an answer to an offer 
-   peerConnection.createAnswer(function (answer) { 
-      peerConnection.setLocalDescription(answer); 
-      
-      send({ 
-         type: "answer", 
-         answer: answer 
-      }); 
-      peerConnection.onmessage=(e)=>{
-         cameraLog(e);
-      }
-      
-   }, function (error) { 
-      cameraLog(error); 
-   }); 
-};
-  
-//when we got an answer from a remote user
-function handleAnswer(answer) { 
-};
-  
-//when we got an ice candidate from a remote user 
-function handleCandidate(candidate) { 
-   peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); 
-};
-   
-function handleLeave() { 
-   peerConnection.close(); 
-   peerConnection=undefined;
-   /*
-      send({ 
-         type: "login", 
-         name: "camera" 
-      }); 
-      */
-};
-
-//hang up 
-/*
-hangUpBtn.addEventListener("click", function () { 
-
-   send({ 
-      type: "leave" 
-   });  
-	
-   handleLeave(); 
-});
-*/
 </script>

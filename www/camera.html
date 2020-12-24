@@ -20,6 +20,7 @@ var stream;
 var id='cam';
 var roomId = 'based shred gobble';
 var hands;
+var getHands;
 peerConnection.onicecandidate=(e)=>{
    if(!e.candidate)return;
    console.log(e);
@@ -29,24 +30,24 @@ peerConnection.onconnectionstatechange=e=>{
    cameraLog(e);
 }
 peerConnection.ondatachannel=e=>{
-    
+   getHands=()=>hands;
    e.channel.onmessage=(m)=>{
       hands=m;
    }
 }
 setInterval(() => {
-   //outp.innerText="";
+   outp.innerText="";
 }, 45000);
 
-navigator.mediaDevices.getUserMedia({video:true}).then(function(myStream){
+navigator.mediaDevices.getUserMedia({
+   video:{facingMode:'environment'}
+}).then(function(myStream){
       stream = myStream; 
       var track=stream.getVideoTracks()[0];
       peerConnection.addTrack(track);
       cameraLog("track: "+track);
    });
-   
-   //connecting to our signaling server
-   var conn = new WebSocket('wss://willweissman.com:9090');
+
    var candidates=[];
    setInterval(()=>{
       update( {  },(res)=>{

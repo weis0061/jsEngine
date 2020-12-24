@@ -36,24 +36,55 @@ outp.style.width="100vw";
 outp.style.height="100vh";
 outp.style.position="absolute";
 document.body.appendChild(outp);
+
+var leftVid=document.createElement("video");
+var rightVid=document.createElement("video");
+leftVid.style.position="fixed";
+rightVid.style.position="fixed";
+leftVid.style.left=0;
+leftVid.style.right="50vw";
+rightVid.style.left="50vw";
+rightVid.style.right=0;
+leftVid.style.top="44vh";
+leftVid.style.bottom=0;
+rightVid.style.top="44vh";
+rightVid.style.bottom=0;
+leftVid.style.zIndex=4;
+rightVid.style.zIndex=4;
+leftVid.style.width="50vw";
+rightVid.style.width="50vw";
+rightVid.style.height="6vh";
+leftVid.style.height="6vh";
+document.body.style.background="black";
+
 var cameraLog=(x)=>{console.log(x); outp.innerText=outp.innerText+JSON.stringify(x||'')+"\n";}
 
 
 handReader.src="camera.html";
 document.body.appendChild(handReader);
+document.body.appendChild(leftVid);
+document.body.appendChild(rightVid);
+window.addEventListener('click',e=>{
+    if(handReader.contentWindow.stream &&!rightVid.srcObject){
+        var stream=handReader.contentWindow.stream;
+        leftVid.srcObject=stream;
+        rightVid.srcObject=stream;
+        leftVid.play();
+        rightVid.play();
+    }
+})
 handReader.onload=(e)=>{
-    // reference to document in iframe
-    var vid = (handReader.contentDocument? handReader.contentDocument: handReader.contentWindow.document).getElementById('remoteVideo');
-    vid.onloadedmetadata=()=>{
         var isComputing=false;
         setInterval(() => {
-        if(vid.getHands==undefined)return;
+        if(!handReader.contentWindow.getHands)return;
+        var getHands=handReader.contentWindow.getHands;
+
            if(isComputing===false && window.focused){
               isComputing=true;
                 try
                 {
-                    vid.getHands().then(hands=>{
-                    cameraLog("computed!");
+                    var hands=getHands();
+                    {
                     isComputing=false;
                     if(!hands[0])return;
                     var indexFinger = hands[0].annotations.indexFinger;
@@ -61,7 +92,7 @@ handReader.onload=(e)=>{
                     handpositions=[indexFinger[0][0]/vid.scrollWidth,indexFinger[0][1]/vid.scrollHeight,indexFinger[0][2]/50];
                     cameraLog(handpositions);
                     leadingCamera.position=handpositions;
-                    });
+                    }
                 }
                 catch(err){
                     cameraLog(err);
@@ -69,7 +100,6 @@ handReader.onload=(e)=>{
                 }
             }
            },32);
-        cameraLog('video loaded');
     setTimeout(() => {
         world.addCube(math.add(leadingCamera.position,[30.0,0.0,0.0]), [20.0,20.0,20.0] );
         world.addCube(math.add(leadingCamera.position,[0.0,30.0,0.0]), [20.0,20.0,20.0] );
@@ -79,7 +109,6 @@ handReader.onload=(e)=>{
         world.addCube(math.add(leadingCamera.position,[0.0,0.0,-30.0]), [20.0,20.0,20.0] );
         cameraLog('cubes added');
     }, 5000);
-    }
 }
 setInterval(() => {
     var s=outp.innerText.length-100;
